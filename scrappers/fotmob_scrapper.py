@@ -1,7 +1,7 @@
 import time
 import pandas as pd
 from bs4 import BeautifulSoup
-
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -34,12 +34,15 @@ class FotMobScraper:
     def get_player_bio(self, player_id):
         soup = self._load_page(player_id)
 
-        rows = []
+        data = {}
+        data["player_id"] = player_id
 
+        # Name
         player_name = soup.find("h1")
         if player_name:
-            rows.append({"stat": "Name", "value": player_name.text.strip()})
+            data["Name"] = player_name.text.strip()
 
+        # Bio stats
         bio = soup.find("div", class_="css-nlprju-PlayerBioCSS e1sx8s6x0")
         if bio:
             stat_blocks = bio.find_all("div", class_="css-to3w1c-StatValueCSS e1e6xf3b2")
@@ -51,15 +54,32 @@ class FotMobScraper:
                 title_tag = parent.find("div", class_="css-tp32vr-StatTitleCSS e1e6xf3b1")
                 title = title_tag.get_text(strip=True) if title_tag else None
 
-                rows.append({"stat": title, "value": value})
+                if not title:
+                    continue
 
+                if title == "Height":
+                    cleaned = value.replace("cm", "").strip()
+                    value = float(cleaned) if cleaned else None
+
+                if title and any(month in title for month in [
+                    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+                ]):
+                    data[title] = title
+                    data["Birthdate"] = datetime.strptime(data[title], "%b %d, %Y").date() if data[title] else None
+                    del data[title]
+                else:
+                    data[title] = value
+
+        # Position
         position_block = soup.find("div", class_="css-1y1g69o-PositionSectionCSS e1sqdo1t7")
         if position_block:
             pos_tag = position_block.find("div", class_="css-1g41csj-PositionsCSS e1sqdo1t6")
             position = pos_tag.get_text(strip=True) if pos_tag else None
-            rows.append({"stat": "Primary Position", "value": position})
+            data["Primary Position"] = position
 
-        return pd.DataFrame(rows)
+        # Convert to single-row DataFrame with columns = stats
+        return pd.DataFrame([data])
 
     # Current season overview
     def get_current_season_overview(self, player_id):
@@ -85,8 +105,11 @@ class FotMobScraper:
                 value = rating.get_text(strip=True) if rating else value
 
             rows.append({"stat": title, "value": value})
-
-        return pd.DataFrame(rows)
+        df = pd.DataFrame(rows)
+        df = df.set_index("stat").T
+        df["player_id"] = player_id
+        df["season"] = datetime.now().year
+        return df
 
     # Season stats (normal + per 90)
     def get_current_season_stats(self, player_id):
@@ -171,7 +194,64 @@ class FotMobScraper:
                     "value": value,
                     "type": label 
                 })
-        return pd.DataFrame(rows)
+
+        df = pd.DataFrame(rows)
+
+        df["stat"] = df.apply(
+            lambda r: f"{r['stat']}_per90" if r["type"] == "per90" else r["stat"],
+            axis=1
+        )
+
+        df = df.pivot_table(
+            index=df.index // len(df),
+            columns="stat",
+            values="value",
+            aggfunc="first"
+        ).reset_index(drop=True)
+
+        df["Accurate long balls %"] = (
+            df["Accurate long balls %"]
+            .str.replace("%", "", regex=False)
+            .astype(float) / 100
+        )
+        df["Aerial duels won %"] = (
+            df["Aerial duels won %"]
+            .str.replace("%", "", regex=False)
+            .astype(float) / 100
+        )
+        df["Duels won %"] = (
+            df["Duels won %"]
+            .str.replace("%", "", regex=False)
+            .astype(float) / 100
+        )
+        df["Successful passes %"] = (
+            df["Successful passes %"]
+            .str.replace("%", "", regex=False)
+            .astype(float) / 100
+        )
+        df["Accurate long balls %_per90"] = (
+            df["Accurate long balls %_per90"]
+            .str.replace("%", "", regex=False)
+            .astype(float) / 100
+        )
+        df["Aerial duels won %_per90"] = (
+            df["Aerial duels won %_per90"]
+            .str.replace("%", "", regex=False)
+            .astype(float) / 100
+        )
+        df["Duels won %_per90"] = (
+            df["Duels won %_per90"]
+            .str.replace("%", "", regex=False)
+            .astype(float) / 100
+        )
+        df["Successful passes %_per90"] = (
+            df["Successful passes %_per90"]
+            .str.replace("%", "", regex=False)
+            .astype(float) / 100
+        )
+        df["player_id"] = player_id
+        df["season"] = datetime.now().year
+        return df
     
     def __del__(self):
         try:
