@@ -1,4 +1,4 @@
-from fotmob_scraper import FotMobScraper
+from scraper.fotmob_scraper import FotMobScraper
 from postgres_conn import PostgresDB
 import pandas as pd
 import os
