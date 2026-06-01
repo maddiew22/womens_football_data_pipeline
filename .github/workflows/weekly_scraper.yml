@@ -37,5 +37,5 @@ jobs:
           DB_PORT: ${{ secrets.DB_PORT }}
         run: |
           echo "Starting scraper..."
-          python scrapers/fotmob_scraper.py
+          python scrapers/run_scraper.py
           echo "Scraper finished"
