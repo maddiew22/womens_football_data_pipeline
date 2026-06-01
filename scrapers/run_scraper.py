@@ -5,7 +5,7 @@ import os
 
 
 db = PostgresDB(
-    url=os.getenv("DB_URL")
+    db_url=os.getenv("DB_URL")
 )
 
 db.connect()
