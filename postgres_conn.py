@@ -14,7 +14,6 @@ class PostgresDB:
 
     def connect(self):
         """Open database connection"""
-        print(f"Connecting to database {self.database} at {self.host}:{self.port} as user {self.user}")
         self.conn = psycopg2.connect(
             host=self.host,
             database=self.database,

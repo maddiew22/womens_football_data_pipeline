@@ -38,5 +38,10 @@ jobs:
           DB_PORT: ${{ secrets.DB_PORT }}
         run: |
           echo "Starting scraper..."
+          echo "DB_HOST=$DB_HOST"
+          echo "DB_NAME=$DB_NAME"
+          echo "DB_USER=$DB_USER"
+          echo "DB_PASSWORD=$DB_PASSWORD"
+          echo "DB_PORT=$DB_PORT"
           python -m scrapers.run_scraper
           echo "Scraper finished"
