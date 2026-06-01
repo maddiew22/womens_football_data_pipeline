@@ -122,7 +122,7 @@ class PostgresDB:
                 clean_sheets_per_90, goals_conceded_while_on_pitch, xg_against_when_on_pitch, goals_conceded_while_on_pitch_per_90, xg_against_when_on_pitch_per_90,
                 yellow_cards, yellow_cards_per_90, red_cards, red_cards_per_90, successful_crosses, successful_crosses_per_90, successful_cross_rate, successful_cross_rate_per_90,
                 successful_dribbles, successful_dribbles_per_90, successful_dribble_rate, successful_dribble_rate_per_90, fouls_committed, fouls_committed_per_90, dribbled_past, dribbled_past_per_90, 
-                possession_won_in_final_third, possession_won_in_final_third_per_90)
+                possession_won_in_final_third, possession_won_in_final_third_per_90, competition)
             VALUES (
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
@@ -131,9 +131,9 @@ class PostgresDB:
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s
             )
-            ON CONFLICT (player_id, season)
+            ON CONFLICT (player_id, season, competition)
             DO UPDATE SET
                 goals = EXCLUDED.goals,
                 goals_per_90 = EXCLUDED.goals_per_90,
@@ -211,18 +211,18 @@ class PostgresDB:
                 possession_won_in_final_third_per_90 = EXCLUDED.possession_won_in_final_third_per_90
         """
 
-        season_stats_rows = [
-            (self.safe_int(row["player_id"]), self.safe_int(row["season"]), self.safe_int(row["Goals"]), self.safe_float(row["Goals_per90"]), self.safe_float(row["Expected goals (xG)"]), self.safe_float(row["Expected goals (xG)_per90"]), self.safe_float(row["xG on target (xGOT)"]), self.safe_float(row["xG on target (xGOT)_per90"]), 
-             self.safe_int(row["Shots"].replace(",", "")), self.safe_float(row["Shots_per90"]), self.safe_int(row["Shots on target"]), self.safe_float(row["Shots on target_per90"]), self.safe_int(row["Assists"]), self.safe_float(row["Assists_per90"]), self.safe_float(row["Expected assists (xA)"]), self.safe_float(row["Expected assists (xA)_per90"]), self.safe_int(row["Successful passes"].replace(",", "")), self.safe_float(row["Successful passes_per90"]), 
-             self.safe_float(row["Successful passes %"]), self.safe_float(row["Successful passes %_per90"]), self.safe_int(row["Accurate long balls"].replace(",", "")), self.safe_float(row["Accurate long balls_per90"]), self.safe_float(row["Accurate long balls %"]), self.safe_float(row["Accurate long balls %_per90"]), self.safe_int(row["Chances created"]), self.safe_float(row["Chances created_per90"]), 
-             self.safe_int(row["Duels won"].replace(",", "")), self.safe_float(row["Duels won_per90"]), self.safe_float(row["Duels won %"]), self.safe_float(row["Duels won %_per90"]), self.safe_int(row["Aerial duels won"].replace(",", "")), self.safe_float(row["Aerial duels won_per90"]), self.safe_float(row["Aerial duels won %"]), self.safe_float(row["Aerial duels won %_per90"]), self.safe_int(row["Touches"].replace(",", "")), self.safe_float(row["Touches_per90"]),
-             self.safe_int(row["Touches in opposition box"].replace(",", "")), self.safe_float(row["Touches in opposition box_per90"]), self.safe_int(row["Dispossessed"].replace(",", "")), self.safe_float(row["Dispossessed_per90"]), self.safe_int(row["Fouls won"]), self.safe_float(row["Fouls won_per90"]), self.safe_int(row["Defensive contributions"]), self.safe_float(row["Defensive contributions_per90"]), self.safe_int(row["Tackles"].replace(",", "")),
-             self.safe_float(row["Tackles_per90"]), self.safe_int(row["Interceptions"].replace(",", "")), self.safe_float(row["Interceptions_per90"]), self.safe_int(row["Recoveries"].replace(",", "")), self.safe_float(row["Recoveries_per90"]), self.safe_int(row["Clearances"].replace(",", "")), self.safe_float(row["Clearances_per90"]), self.safe_int(row["Clean sheets"]), self.safe_float(row["Clean sheets_per90"]),
-             self.safe_int(row["Goals conceded while on pitch"]), self.safe_float(row["xG against while on pitch"]), self.safe_float(row["Goals conceded while on pitch_per90"]), self.safe_float(row["xG against while on pitch_per90"]), self.safe_int(row["Yellow cards"]), self.safe_float(row["Yellow cards_per90"]), self.safe_int(row["Red cards"]), self.safe_float(row["Red cards_per90"]), self.safe_int(row["Successful crosses"]), self.safe_float(row["Successful crosses_per90"]), self.safe_float(row["Successful crosses %"]), self.safe_float(row["Successful crosses %_per90"]),
-             self.safe_float(row["Successful dribbles"]), self.safe_float(row["Successful dribbles_per90"]), self.safe_float(row["Successful dribbles %"]), self.safe_float(row["Successful dribbles %_per90"]), self.safe_int(row["Fouls committed"]), self.safe_float(row["Fouls committed_per90"]), self.safe_int(row["Dribbled past"]), self.safe_float(row["Dribbled past_per90"]), self.safe_int(row["Possession won final 3rd"]), self.safe_float(row["Possession won final 3rd_per90"]))
-            for _, row in season_stats_df.iterrows()
-        ]
+        # season_stats_rows = [
+        #     (self.safe_int(row["player_id"]), self.safe_int(row["season"]), self.safe_int(row["Goals"]), self.safe_float(row["Goals_per90"]), self.safe_float(row["Expected goals (xG)"]), self.safe_float(row["Expected goals (xG)_per90"]), self.safe_float(row["xG on target (xGOT)"]), self.safe_float(row["xG on target (xGOT)_per90"]), 
+        #      self.safe_int(row["Shots"].replace(",", "")), self.safe_float(row["Shots_per90"]), self.safe_int(row["Shots on target"]), self.safe_float(row["Shots on target_per90"]), self.safe_int(row["Assists"]), self.safe_float(row["Assists_per90"]), self.safe_float(row["Expected assists (xA)"]), self.safe_float(row["Expected assists (xA)_per90"]), self.safe_int(row["Successful passes"].replace(",", "")), self.safe_float(row["Successful passes_per90"]), 
+        #      self.safe_float(row["Successful passes %"]), self.safe_float(row["Successful passes %_per90"]), self.safe_int(row["Accurate long balls"].replace(",", "")), self.safe_float(row["Accurate long balls_per90"]), self.safe_float(row["Accurate long balls %"]), self.safe_float(row["Accurate long balls %_per90"]), self.safe_int(row["Chances created"]), self.safe_float(row["Chances created_per90"]), 
+        #      self.safe_int(row["Duels won"].replace(",", "")), self.safe_float(row["Duels won_per90"]), self.safe_float(row["Duels won %"]), self.safe_float(row["Duels won %_per90"]), self.safe_int(row["Aerial duels won"].replace(",", "")), self.safe_float(row["Aerial duels won_per90"]), self.safe_float(row["Aerial duels won %"]), self.safe_float(row["Aerial duels won %_per90"]), self.safe_int(row["Touches"].replace(",", "")), self.safe_float(row["Touches_per90"]),
+        #      self.safe_int(row["Touches in opposition box"].replace(",", "")), self.safe_float(row["Touches in opposition box_per90"]), self.safe_int(row["Dispossessed"].replace(",", "")), self.safe_float(row["Dispossessed_per90"]), self.safe_int(row["Fouls won"]), self.safe_float(row["Fouls won_per90"]), self.safe_int(row["Defensive contributions"]), self.safe_float(row["Defensive contributions_per90"]), self.safe_int(row["Tackles"].replace(",", "")),
+        #      self.safe_float(row["Tackles_per90"]), self.safe_int(row["Interceptions"].replace(",", "")), self.safe_float(row["Interceptions_per90"]), self.safe_int(row["Recoveries"].replace(",", "")), self.safe_float(row["Recoveries_per90"]), self.safe_int(row["Clearances"].replace(",", "")), self.safe_float(row["Clearances_per90"]), self.safe_int(row["Clean sheets"]), self.safe_float(row["Clean sheets_per90"]),
+        #      self.safe_int(row["Goals conceded while on pitch"]), self.safe_float(row["xG against while on pitch"]), self.safe_float(row["Goals conceded while on pitch_per90"]), self.safe_float(row["xG against while on pitch_per90"]), self.safe_int(row["Yellow cards"]), self.safe_float(row["Yellow cards_per90"]), self.safe_int(row["Red cards"]), self.safe_float(row["Red cards_per90"]), self.safe_int(row["Successful crosses"]), self.safe_float(row["Successful crosses_per90"]), self.safe_float(row["Successful crosses %"]), self.safe_float(row["Successful crosses %_per90"]),
+        #      self.safe_float(row["Successful dribbles"]), self.safe_float(row["Successful dribbles_per90"]), self.safe_float(row["Successful dribbles %"]), self.safe_float(row["Successful dribbles %_per90"]), self.safe_int(row["Fouls committed"]), self.safe_float(row["Fouls committed_per90"]), self.safe_int(row["Dribbled past"]), self.safe_float(row["Dribbled past_per90"]), self.safe_int(row["Possession won final 3rd"]), self.safe_float(row["Possession won final 3rd_per90"]), row["competition"])
+        #     for _, row in season_stats_df.iterrows()
+        # ]
   
-        self.executemany(insert_season_stats_query, season_stats_rows)
-        self.commit()
+        # self.executemany(insert_season_stats_query, season_stats_rows)
+        # self.commit()
  

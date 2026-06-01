@@ -1,9 +1,11 @@
 import time
+from click import option
 import pandas as pd
 from bs4 import BeautifulSoup
 from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import numpy as np
@@ -12,11 +14,13 @@ import numpy as np
 class FotMobScraper:
     BASE_URL = "https://www.fotmob.com/en/players/{}"
 
-    def __init__(self, headless=True):
+    def __init__(self):
         options = webdriver.ChromeOptions()
-        if headless:
-            options.add_argument("--headless=new")
-        options.add_argument("--start-maximized")
+        options.add_argument("--headless=new")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1920,1080")
 
         self.driver = webdriver.Chrome(options=options)
         self.wait = WebDriverWait(self.driver, 10)
@@ -30,6 +34,12 @@ class FotMobScraper:
 
     def close(self):
         self.driver.quit()
+
+    def __del__(self):
+        try:
+            self.driver.quit()
+        except:
+            pass
 
     # Player bio and info
     def get_player_bio(self, player_id):
@@ -170,6 +180,13 @@ class FotMobScraper:
         if not stats_box:
             return pd.DataFrame()
 
+        league_selector = generic_soup.find("div", class_="css-1odgbvs-SeasonSelectCSS e15abtql0")
+        if league_selector:
+            select = league_selector.find("select")
+            if select:
+                current_comp = select.get("aria-label", "").replace("Selected: ", "")
+
+    
 
         first_stat_elem = wait.until(
             EC.presence_of_element_located(
@@ -329,10 +346,240 @@ class FotMobScraper:
         )
         df["player_id"] = player_id
         df["season"] = datetime.now().year
+        df["competition"] = current_comp if current_comp else np.nan
         return df
     
-    def __del__(self):
-        try:
-            self.driver.quit()
-        except:
-            pass
+    def get_teams_from_league(self, league_id):
+        url = f"https://www.fotmob.com/leagues/{league_id}"
+        self.driver.get(url)
+        time.sleep(5)
+
+        soup = BeautifulSoup(self.driver.page_source, "lxml")
+        teams = set()
+
+        for a in soup.find_all("a", href=True):
+            if "/teams/" in a["href"]:
+                teams.add("https://www.fotmob.com" + a["href"])
+
+        return list(teams)
+    
+    def get_players_from_team(self, team_url):
+        team_url = team_url.replace("overview", "squad")
+        self.driver.get(team_url)
+        soup = BeautifulSoup(self.driver.page_source, "lxml")
+
+        players = set()
+        squad_box = soup.find("div", class_="css-1qm9gpo-Column e152ovrx0")
+        squad_subsections = squad_box.find_all("div")
+        for section in squad_subsections:
+
+                h2 = section.find("h2")
+                if not h2:
+                    continue
+                span = h2.find("span")
+                if not span:
+                    continue
+
+                position = span.get_text(strip=True).lower()
+                if "coach" in position or "keepers" in position:
+                    continue
+
+                # collect player links in this section only
+                for a in section.select("a[href^='/players/']"):
+                    parts = a["href"].split("/")
+                    if len(parts) > 2:
+                        players.add(parts[2])
+
+        return list(players)
+    
+    # def get_historical_season_stats(self, player_id):
+
+    #     expected_stats = [
+    #         'Accurate long balls', 'Accurate long balls %',
+    #         'Accurate long balls %_per90', 'Accurate long balls_per90',
+    #         'Aerial duels won', 'Aerial duels won %', 'Aerial duels won %_per90',
+    #         'Aerial duels won_per90', 'Assists', 'Assists_per90', 'Chances created',
+    #         'Chances created_per90','Clean sheets', 'Clean sheets_per90', 'Clearances',
+    #         'Clearances_per90','Defensive contributions', 'Defensive contributions_per90',
+    #         'Dispossessed', 'Dispossessed_per90', 'Dribbled past',
+    #         'Dribbled past_per90', 'Duels won', 'Duels won %', 'Duels won %_per90',
+    #         'Duels won_per90', 'Expected assists (xA)',
+    #         'Expected assists (xA)_per90', 'Expected goals (xG)',
+    #         'Expected goals (xG)_per90', 'Fouls committed', 'Fouls committed_per90',
+    #         'Fouls won', 'Fouls won_per90', 'Goals',
+    #         'Goals conceded while on pitch', 'Goals conceded while on pitch_per90',
+    #         'Goals_per90', 'Interceptions', 'Interceptions_per90',
+    #         'Possession won final 3rd', 'Possession won final 3rd_per90',
+    #         'Recoveries', 'Recoveries_per90', 'Red cards', 'Red cards_per90',
+    #         'Shots', 'Shots on target', 'Shots on target_per90', 'Shots_per90',
+    #         'Successful crosses', 'Successful crosses %',
+    #         'Successful crosses %_per90', 'Successful crosses_per90',
+    #         'Successful dribbles', 'Successful dribbles %',
+    #         'Successful dribbles %_per90', 'Successful dribbles_per90',
+    #         'Successful passes', 'Successful passes %', 'Successful passes %_per90',
+    #         'Successful passes_per90', 'Tackles', 'Tackles_per90', 'Touches',
+    #         'Touches in opposition box', 'Touches in opposition box_per90',
+    #         'Touches_per90', 'Yellow cards', 'Yellow cards_per90',
+    #         'xG against while on pitch', 'xG against while on pitch_per90',
+    #         'xG on target (xGOT)', 'xG on target (xGOT)_per90',
+    #         'player_id', 'season'
+    #     ]
+
+    #     url = self.BASE_URL.format(player_id)
+    #     self.driver.get(url)
+    #     time.sleep(5)
+
+    #     soup = BeautifulSoup(self.driver.page_source, "lxml")
+
+    #     # ---- build competition list ----
+    #     competitions = []
+    #     for optgroup in soup.find_all("optgroup"):
+    #         season_group = optgroup.get("label", "").strip()
+
+    #         for option in optgroup.find_all("option"):
+    #             competitions.append({
+    #                 "season_group": season_group,
+    #                 "competition": option.text.strip(),
+    #                 "value": option.get("value")
+    #             })
+
+    #     results = []
+
+    #     for comp in competitions:
+    #         try:
+    #             print(f"Scraping {comp['season_group']} - {comp['competition']}")
+
+    #             # locate select fresh each loop
+    #             select_element = self.driver.find_element(
+    #                 By.CSS_SELECTOR,
+    #                 "div.css-1odgbvs-SeasonSelectCSS select"
+    #             )
+
+    #             dropdown = Select(select_element)
+
+    #             # capture old state (IMPORTANT FIX)
+    #             old_first_stat = self.driver.find_element(
+    #                 By.CSS_SELECTOR,
+    #                 "div.css-15lw8xy-SeasonPerformanceCSS div.css-13fpglj-StatValue"
+    #             ).text
+
+    #             # SELECT via Selenium ONLY (do NOT click option manually)
+    #             dropdown.select_by_value(comp["value"])
+
+    #             # force change event (important for React)
+    #             self.driver.execute_script("""
+    #                 arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+    #             """, select_element)
+
+    #             # WAIT for actual stat change (not DOM presence)
+    #             WebDriverWait(self.driver, 10).until(
+    #                 lambda d: d.find_element(
+    #                     By.CSS_SELECTOR,
+    #                     "div.css-15lw8xy-SeasonPerformanceCSS div.css-13fpglj-StatValue"
+    #                 ).text != old_first_stat
+    #             )
+
+    #             time.sleep(1)
+
+    #             soup = BeautifulSoup(self.driver.page_source, "lxml")
+
+    #             stats_box = soup.find(
+    #                 "div",
+    #                 class_="css-15lw8xy-SeasonPerformanceCSS"
+    #             )
+
+    #             if not stats_box:
+    #                 print("Skipping (no stats box)")
+    #                 continue
+
+    #             rows = []
+
+    #             stat_items = stats_box.find_all(
+    #                 "div",
+    #                 class_="css-1v73fp6-StatItemCSS e1fqvhy50"
+    #             )
+
+    #             for group in stat_items:
+    #                 title = group.find("span")
+    #                 value = group.find("div")
+
+    #                 if not title:
+    #                     continue
+
+    #                 rows.append({
+    #                     "stat": title.get_text(strip=True),
+    #                     "value": value.get_text(strip=True) if value else np.nan
+    #                 })
+
+    #             if not rows:
+    #                 continue
+
+    #             df = pd.DataFrame(rows).set_index("stat").T
+
+    #             for stat in expected_stats:
+    #                 if stat not in df.columns:
+    #                     df[stat] = np.nan
+
+    #             df["player_id"] = player_id
+    #             df["season"] = comp["season_group"]
+    #             df["competition"] = comp["competition"]
+
+    #             results.append(df)
+
+    #         except Exception as e:
+    #             print(f"Skipping {comp['competition']} -> {e}")
+    #             continue
+
+
+    def historical_season_stats(self, player_id):
+
+        url = self.BASE_URL.format(player_id)
+        self.driver.get(url)
+
+        select_locator = (By.CSS_SELECTOR, "div[class*='SeasonSelectCSS'] select")
+        stats_locator = (By.CSS_SELECTOR, "div[class*='SeasonPerformanceCSS']")
+
+        select_element = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located(select_locator)
+        )
+
+        previous_text = ""
+
+        # get number of options once (safe because we re-fetch element each loop)
+        option_count = len(select_element.find_elements(By.TAG_NAME, "option"))
+
+        for index in range(option_count):
+
+            select_element = self.driver.find_element(*select_locator)
+
+            option = select_element.find_elements(By.TAG_NAME, "option")[index]
+            option_text = option.text
+            print(f"Scraping: {option_text}")
+
+            # 🔥 KEY FIX: force real user-like event triggering
+            self.driver.execute_script("""
+                const select = arguments[0];
+                const value = select.options[arguments[1]].value;
+
+                select.value = value;
+
+                select.dispatchEvent(new Event('input', { bubbles: true }));
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+            """, select_element, index)
+
+            # Wait for stats to actually change (not just appear)
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    lambda d: d.find_element(*stats_locator).text != previous_text
+                )
+            except Exception:
+                print("⚠️ Stats did not update for this selection")
+                continue
+
+            stats_container = self.driver.find_element(*stats_locator)
+            stats_text = stats_container.text
+
+            previous_text = stats_text
+
+            print(stats_text)
+            print("-" * 30)
