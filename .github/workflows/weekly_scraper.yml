@@ -3,6 +3,7 @@ name: Weekly FotMob Scraper
 on:
   schedule:
     - cron: "0 3 * * 0"   # every Sunday 03:00 UTC
+  workflow_dispatch:
 
 jobs:
   scrape_fotmob:
