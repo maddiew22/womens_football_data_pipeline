@@ -30,6 +30,7 @@ jobs:
 
       - name: Run FotMob Scraper
         env: 
+          PYTHONPATH: ${{ github.workspace }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_USER: ${{ secrets.DB_USER }}
@@ -37,5 +38,5 @@ jobs:
           DB_PORT: ${{ secrets.DB_PORT }}
         run: |
           echo "Starting scraper..."
-          python scrapers/run_scraper.py
+          python -m scrapers.run_scraper
           echo "Scraper finished"
