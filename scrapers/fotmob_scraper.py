@@ -43,7 +43,7 @@ class FotMobScraper:
 
     # Player bio and info
     def get_player_bio(self, player_id):
-        expected_cols = ["player_id", "Name", "Birthdate", "Height", "Primary Position", "Preferred foot", "Club"]
+        expected_cols = ["player_id", "Name", "Birthdate", "Primary Position", "Preferred foot", "Club"]
 
         soup = self._load_page(player_id)
 
@@ -79,7 +79,10 @@ class FotMobScraper:
 
                 if title == "Height":
                     cleaned = value.replace("cm", "").strip()
-                    value = float(cleaned) if cleaned else None
+                    try:
+                        value = float(cleaned) if cleaned else None
+                    except:
+                        value = None
 
                 if title and any(month in title for month in [
                     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
