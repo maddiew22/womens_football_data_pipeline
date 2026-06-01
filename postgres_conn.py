@@ -2,25 +2,14 @@ import psycopg2
 import pandas as pd
 
 class PostgresDB:
-    def __init__(self, host="localhost", database="womens_football_data",
-                 user="maddie", password="postgres", port=5432):
-        self.host = host
-        self.database = database
-        self.user = user
-        self.password = password
-        self.port = port
+    def __init__(self, db_url):
+        self.db_url = db_url
         self.conn = None
         self.cur = None
 
     def connect(self):
         """Open database connection"""
-        self.conn = psycopg2.connect(
-            host=self.host,
-            database=self.database,
-            user=self.user,
-            password=self.password,
-            port=self.port
-        )
+        self.conn = psycopg2.connect(self.db_url)
         self.cur = self.conn.cursor()
 
     def execute(self, query, params=None):
