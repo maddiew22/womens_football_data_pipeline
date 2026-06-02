@@ -43,7 +43,7 @@ class FotMobScraper:
 
     # Player bio and info
     def get_player_bio(self, player_id):
-        expected_cols = ["player_id", "Name", "Birthdate", "Height", "Primary Position", "Preferred foot", "Club"]
+        expected_cols = ["player_id", "Name", "Height", "Birthdate", "Primary Position", "Preferred foot", "Club"]
 
         soup = self._load_page(player_id)
 
