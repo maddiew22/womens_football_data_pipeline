@@ -94,7 +94,7 @@ class PostgresDB:
         """
 
         season_overview_rows = [
-            (row["player_id"], row["season"], row["Goals"], row["Assists"], row["Matches"], row["Started"], int(row["Minutes played"].replace(",", "")), row["Rating"])
+            (row["player_id"], row["season"], None if pd.isna(row["Goals"]) else row["Goals"], None if pd.isna(row["Assists"]) else row["Assists"], None if pd.isna(row["Matches"]) else row["Matches"], None if pd.isna(row["Started"]) else row["Started"], int(row["Minutes played"].replace(",", "")) if not pd.isna(row["Minutes played"]) else None, row["Rating"])
             for _, row in season_overview_df.iterrows()
         ]
         print(season_overview_rows)
