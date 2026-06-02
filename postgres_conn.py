@@ -72,7 +72,7 @@ class PostgresDB:
         """
 
         bio_rows = [
-            (row["player_id"], row["Name"], row["Height"], row["Birthdate"], row["Country"], row["Primary Position"], row["Preferred foot"], row["Club"])
+            (row["player_id"], row["Name"], row["Height"], None if pd.isna(row["Birthdate"]) else row["Birthdate"], row["Country"], row["Primary Position"], row["Preferred foot"], row["Club"])
             for _, row in bio_df.iterrows()
         ]
 
