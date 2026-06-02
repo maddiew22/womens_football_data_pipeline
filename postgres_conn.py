@@ -97,6 +97,7 @@ class PostgresDB:
             (row["player_id"], row["season"], row["Goals"], row["Assists"], row["Matches"], row["Started"], int(row["Minutes played"].replace(",", "")), row["Rating"])
             for _, row in season_overview_df.iterrows()
         ]
+        print(season_overview_rows)
 
         self.executemany(insert_season_overview_query, season_overview_rows)
         self.commit()
