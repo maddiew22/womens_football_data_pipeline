@@ -75,7 +75,7 @@ class PostgresDB:
             (row["player_id"], row["Name"], row["Height"], None if pd.isna(row["Birthdate"]) else row["Birthdate"], row["Country"], row["Primary Position"], row["Preferred foot"], row["Club"])
             for _, row in bio_df.iterrows()
         ]
-
+        print(bio_rows)
         self.executemany(insert_bio_query, bio_rows)
         self.commit()
 

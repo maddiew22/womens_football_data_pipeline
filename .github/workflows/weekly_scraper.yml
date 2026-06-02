@@ -34,5 +34,5 @@ jobs:
           DB_URL: ${{ secrets.DB_URL }}
         run: |
           echo "Starting scraper..."
-          python -m scrapers.run_scraper
+          python -u -m scrapers.run_scraper
           echo "Scraper finished"
