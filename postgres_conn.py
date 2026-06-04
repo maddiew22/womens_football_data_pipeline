@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import psycopg2
 import pandas as pd
 
@@ -55,6 +57,18 @@ class PostgresDB:
             value = value.replace(",", "")
 
         return float(value)
+
+    def save_raw_json(self, player_id, json_data):
+        createdate = datetime.now()
+        insert_query = """
+            INSERT INTO fotmob_data.raw_player_overview (player_id, createdate, json_data)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (player_id)
+            DO UPDATE SET createdate = EXCLUDED.createdate,
+            DO UPDATE SET json_data = EXCLUDED.json_data
+        """
+        self.execute(insert_query, (player_id, createdate, json_data))
+        self.commit()
     
     def save_player_fotmob_data(self, bio_df, season_overview_df, season_stats_df):
         insert_bio_query = """
@@ -75,7 +89,6 @@ class PostgresDB:
             (row["player_id"], row["Name"], row["Height"], None if pd.isna(row["Birthdate"]) else row["Birthdate"], row["Country"], row["Primary Position"], row["Preferred foot"], row["Club"])
             for _, row in bio_df.iterrows()
         ]
-        print(bio_rows)
         self.executemany(insert_bio_query, bio_rows)
         self.commit()
 
@@ -97,7 +110,6 @@ class PostgresDB:
             (row["player_id"], row["season"], None if pd.isna(row["Goals"]) else row["Goals"], None if pd.isna(row["Assists"]) else row["Assists"], None if pd.isna(row["Matches"]) else row["Matches"], None if pd.isna(row["Started"]) else row["Started"], int(row["Minutes played"].replace(",", "")) if not pd.isna(row["Minutes played"]) else None, row["Rating"])
             for _, row in season_overview_df.iterrows()
         ]
-        print(season_overview_rows)
 
         self.executemany(insert_season_overview_query, season_overview_rows)
         self.commit()

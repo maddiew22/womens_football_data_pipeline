@@ -1,4 +1,4 @@
-from scrapers.fotmob_scraper import FotMobScraper
+from scrapers.fotmob_scraper_v2 import FotMobScraper
 from postgres_conn import PostgresDB
 import pandas as pd
 import os
@@ -31,8 +31,9 @@ for league_id, league_name in LEAGUES.items():
         team_player_map[team_url] = team_players
 
         for player_id in team_player_map[team_url]:
+            print(player_id)
             bio = scraper.get_player_bio(player_id)
-            season_overview = scraper.get_current_season_overview(player_id)
-            db.save_player_fotmob_data(bio, season_overview, season_stats_df=pd.DataFrame())
+            db.save_raw_json(player_id, bio)
+
 db.close()
 scraper.close()
