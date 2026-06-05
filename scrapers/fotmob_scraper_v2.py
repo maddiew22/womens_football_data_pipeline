@@ -29,9 +29,6 @@ class FotMobScraper:
         if cookies:
             self.session.cookies.update(cookies)
 
-    # -------------------------
-    # API METHODS
-    # -------------------------
 
     def get_player_bio(self, player_id: int):
         url = self.BASE_URL_BIO.format(player_id)
@@ -54,57 +51,6 @@ class FotMobScraper:
             raise Exception(f"Stats request failed: {r.status_code} - {r.text[:200]}")
 
         return r.json()
-
-    def get_teams_from_league(self, league_id: str) -> List[str]:
-        url = f"https://www.fotmob.com/leagues/{league_id}"
-        r = self.session.get(url, timeout=15)
-        r.raise_for_status()
-
-        soup = BeautifulSoup(r.text, "lxml")
-
-        teams: Set[str] = set()
-        table = soup.find("table", class_="css-1s9h8jv-Table e1t0gq0c0")
-        for a in soup.find_all("a", href=True):
-            print(a)
-            if "/teams/" in a["href"]:
-                teams.add("https://www.fotmob.com" + a["href"])
-
-        return list(teams)
-
-    def get_players_from_team(self, team_url: str) -> List[str]:
-        team_url = team_url.replace("overview", "squad")
-
-        r = self.session.get(team_url, timeout=15)
-        r.raise_for_status()
-
-        soup = BeautifulSoup(r.text, "lxml")
-
-        players: Set[str] = set()
-
-        squad_box = soup.find("div", class_="css-1qm9gpo-Column e152ovrx0")
-        if not squad_box:
-            return []
-
-        for section in squad_box.find_all("div"):
-            h2 = section.find("h2")
-            if not h2:
-                continue
-
-            span = h2.find("span")
-            if not span:
-                continue
-
-            position = span.get_text(strip=True).lower()
-
-            if "coach" in position or "keepers" in position:
-                continue
-
-            for a in section.select("a[href^='/players/']"):
-                parts = a["href"].split("/")
-                if len(parts) > 2:
-                    players.add(parts[2])
-
-        return list(players)
 
 class TeamScraper:
     def __init__(self):
@@ -175,3 +121,24 @@ class TeamScraper:
                         players.add(parts[2])
 
         return list(players)
+    
+    def get_comps_and_seaons(self,player_id):
+        url = f"https://www.fotmob.com/en/players/{player_id}"
+        self.driver.get(url)
+        time.sleep(5)
+        soup = BeautifulSoup(self.driver.page_source, "lxml")
+        seasons = soup.find_all("optgroup")
+        competitions = []
+
+        for optgroup in seasons:
+            season_group = optgroup.get("label", "").strip()
+            comps = optgroup.find_all("option")
+       
+            for option in comps:
+                competitions.append({
+                    "season_group": season_group,
+                    "competition": option.text.strip(),
+                    "value": option.get("value")
+                })
+        
+        return (competitions)

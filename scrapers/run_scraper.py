@@ -38,5 +38,11 @@ for league_id, league_name in LEAGUES.items():
             bio = scraper.get_player_bio(player_id)
             db.save_raw_json(player_id, bio)
 
+            seasons = team_scraper.get_comps_and_seaons(player_id)
+            for season in seasons:
+                comp_stats = scraper.get_season_stats(player_id, season["value"])
+                db.save_raw_json_season_stats(player_id, season["season_group"], season["competition"], comp_stats)
+                
+
 db.close()
 scraper.close()
