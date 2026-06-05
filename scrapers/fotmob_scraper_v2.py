@@ -22,7 +22,13 @@ class FotMobScraper:
             ),
             "Accept": "application/json, text/plain, */*",
             "Referer": "https://www.fotmob.com/"
+
         })
+
+        self.session.cookies.set(
+            "turnstile_verified",
+            "1.1780660572.319566427e763eb12e5217eb11a6cfebfebbe5b7ba03e4a54947d97a76f94947"
+        )
 
         if headers:
             self.session.headers.update(headers)
