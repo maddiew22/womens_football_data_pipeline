@@ -48,9 +48,10 @@ for league_id, league_name in LEAGUES.items():
                     comp_stats = scraper.get_season_stats(player_id, season["value"])
                     db.save_raw_json_season_stats(player_id, season["season_group"], season["competition"], comp_stats)
                     
-            except:
+            except Exception as e:
+                print(e)
                 print(f"Failed to get data for player: {player_id}")
                 continue
 
 db.close()
-scraper.close()
+team_scraper.close()
