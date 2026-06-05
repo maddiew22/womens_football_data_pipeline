@@ -58,17 +58,17 @@ class PostgresDB:
 
         return float(value)
 
-    def save_raw_json(self, player_id, json_data):
+    def save_raw_json(self, player_id, raw_json):
         createdate = datetime.now()
         insert_query = """
-            INSERT INTO fotmob_data.raw_player_overview (player_id, createdate, json_data)
+            INSERT INTO fotmob_data.raw_player_overview (player_id, createdate, raw_json)
             VALUES (%s, %s, %s)
             ON CONFLICT (player_id)
             DO UPDATE SET 
                 createdate = EXCLUDED.createdate,
-                json_data = EXCLUDED.json_data
+                raw_json = EXCLUDED.raw_json
         """
-        self.execute(insert_query, (player_id, createdate, json_data))
+        self.execute(insert_query, (player_id, createdate, raw_json))
         self.commit()
     
     def save_player_fotmob_data(self, bio_df, season_overview_df, season_stats_df):
