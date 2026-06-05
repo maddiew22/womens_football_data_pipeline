@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import psycopg2
+from psycopg2.extras import Json
 import pandas as pd
 
 class PostgresDB:
@@ -61,7 +62,7 @@ class PostgresDB:
     def save_raw_json(self, player_id, raw_json):
         createdate = datetime.now()
         insert_query = """
-            INSERT INTO fotmob_data.raw_player_overview (player_id, createdate, raw_json)
+            INSERT INTO fotmob_data.raw_player_overview (player_id, createdate, Json(raw_json))
             VALUES (%s, %s, %s)
             ON CONFLICT (player_id)
             DO UPDATE SET 
