@@ -64,8 +64,9 @@ class PostgresDB:
             INSERT INTO fotmob_data.raw_player_overview (player_id, createdate, json_data)
             VALUES (%s, %s, %s)
             ON CONFLICT (player_id)
-            DO UPDATE SET createdate = EXCLUDED.createdate,
-            DO UPDATE SET json_data = EXCLUDED.json_data
+            DO UPDATE SET 
+                createdate = EXCLUDED.createdate,
+                json_data = EXCLUDED.json_data
         """
         self.execute(insert_query, (player_id, createdate, json_data))
         self.commit()
