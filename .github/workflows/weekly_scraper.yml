@@ -2,7 +2,7 @@ name: Weekly FotMob Scraper
 
 on:
   schedule:
-    - cron: "0 3 * * 0"   # every Sunday 03:00 UTC
+    - cron: "0 3 * * 0"
   workflow_dispatch:
 
 jobs:
@@ -11,28 +11,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
+      - name: Build Docker image
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Install Chrome
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable chromium-chromedriver
+          docker build -t fotmob-scraper .
 
       - name: Run FotMob Scraper
-        env: 
-          PYTHONPATH: ${{ github.workspace }}
+        env:
           DB_URL: ${{ secrets.DB_URL }}
         run: |
-          echo "Starting scraper..."
-          python -u -m scrapers.run_scraper
-          echo "Scraper finished"
+          docker run --rm \
+            -e DB_URL \
+            fotmob-scraper
