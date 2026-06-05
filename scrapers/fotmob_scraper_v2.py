@@ -45,7 +45,11 @@ class FotMobScraper:
 
     def get_season_stats(self, player_id: int, competition_id: int):
         url = self.BASE_URL_STATS.format(player_id, competition_id)
-        r = self.session.get(url, timeout=15)
+        headers = {
+            "User-Agent": "Mozilla/5.0 ...",
+            "Cookie": "turnstile_verified=1.1780660572.319566427e763eb12e5217eb11a6cfebfebbe5b7ba03e4a54947d97a76f94947"
+        }
+        r = self.session.get(url, timeout=15, headers=headers)
 
         if r.status_code != 200:
             raise Exception(f"Stats request failed: {r.status_code} - {r.text[:200]}")
