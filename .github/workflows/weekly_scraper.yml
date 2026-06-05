@@ -2,37 +2,19 @@ name: Weekly FotMob Scraper
 
 on:
   schedule:
-    - cron: "0 3 * * 0"   # every Sunday 03:00 UTC
+    - cron: "0 3 * * 0"
   workflow_dispatch:
 
 jobs:
-  scrape_fotmob:
+  scrape:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
+      - name: Build Docker image
+        run: docker build -t fotmob-scraper .
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Install Chrome
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-
-      - name: Run FotMob Scraper
-        env: 
-          PYTHONPATH: ${{ github.workspace }}
-          DB_URL: ${{ secrets.DB_URL }}
-        run: |
-          echo "Starting scraper..."
-          python -u -m scrapers.run_scraper
-          echo "Scraper finished"
+      - name: Run scraper
+        run: docker run fotmob-scraper

@@ -5,7 +5,6 @@ import time
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
 
-
 class FotMobScraper:
     BASE_URL_BIO = "https://www.fotmob.com/api/data/playerData?id={}"
     BASE_URL_STATS = "https://www.fotmob.com/api/data/playerStats?playerId={}&seasonId={}&isFirstSeason=false"
@@ -64,6 +63,8 @@ class TeamScraper:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
+        options.add_argument("--single-process")
+        options.add_argument("--disable-extensions")
 
         self.driver = webdriver.Chrome(options=options)
         self.wait = WebDriverWait(self.driver, 10)

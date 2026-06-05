@@ -36,17 +36,21 @@ for league_id, league_name in LEAGUES.items():
         except:
             print(f"Failed to get players for team: {team_url}")
             continue
-
+        
         for player_id in team_player_map[team_url]:
-            print(player_id)
-            bio = scraper.get_player_bio(player_id)
-            db.save_raw_json(player_id, bio)
+            try:
+                print(player_id)
+                bio = scraper.get_player_bio(player_id)
+                db.save_raw_json(player_id, bio)
 
-            seasons = team_scraper.get_comps_and_seaons(player_id)
-            for season in seasons:
-                comp_stats = scraper.get_season_stats(player_id, season["value"])
-                db.save_raw_json_season_stats(player_id, season["season_group"], season["competition"], comp_stats)
-                
+                seasons = team_scraper.get_comps_and_seaons(player_id)
+                for season in seasons:
+                    comp_stats = scraper.get_season_stats(player_id, season["value"])
+                    db.save_raw_json_season_stats(player_id, season["season_group"], season["competition"], comp_stats)
+                    
+            except:
+                print(f"Failed to get data for player: {player_id}")
+                continue
 
 db.close()
 scraper.close()
