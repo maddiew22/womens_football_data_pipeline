@@ -24,9 +24,11 @@ LEAGUES = {
 for league_id, league_name in LEAGUES.items():
     print(f"Scraping league: {league_name}")
     teams = scraper.get_teams_from_league(league_id)
+    print(teams)
     team_player_map = {}
 
     for team_url in teams:
+        print(team_url)
         team_players = scraper.get_players_from_team(team_url)
         team_player_map[team_url] = team_players
 
