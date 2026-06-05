@@ -30,8 +30,12 @@ for league_id, league_name in LEAGUES.items():
 
     for team_url in teams:
         print(team_url)
-        team_players = team_scraper.get_players_from_team(team_url)
-        team_player_map[team_url] = team_players
+        try:
+            team_players = team_scraper.get_players_from_team(team_url)
+            team_player_map[team_url] = team_players
+        except:
+            print(f"Failed to get players for team: {team_url}")
+            continue
 
         for player_id in team_player_map[team_url]:
             print(player_id)
