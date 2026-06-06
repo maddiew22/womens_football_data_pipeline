@@ -72,6 +72,9 @@ class TeamScraper:
         options.add_argument("--disable-renderer-backgrounding")
         options.add_argument("--disable-features=VizDisplayCompositor")
         options.add_argument("--remote-debugging-port=9222")
+        options.add_argument("--single-process")
+        options.add_argument("--no-zygote")
+        options.add_argument("--disable-setuid-sandbox")
         options.page_load_strategy = "eager"
 
         self.driver = webdriver.Chrome(

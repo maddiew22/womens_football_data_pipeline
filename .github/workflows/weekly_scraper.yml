@@ -22,5 +22,6 @@ jobs:
           DB_URL: ${{ secrets.DB_URL }}
         run: |
           docker run --rm \
-            -e DB_URL \
-            fotmob-scraper
+          --shm-size=2g \
+          -e DB_URL \
+          fotmob-scraper
