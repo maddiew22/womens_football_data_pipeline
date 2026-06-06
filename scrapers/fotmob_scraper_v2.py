@@ -1,7 +1,9 @@
+import time
 import requests
 from bs4 import BeautifulSoup
 from typing import List, Set
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -27,7 +29,7 @@ class FotMobScraper:
 
         self.session.cookies.set(
             "turnstile_verified",
-            "1.1780660572.319566427e763eb12e5217eb11a6cfebfebbe5b7ba03e4a54947d97a76f94947"
+            "1.1780766293.b95920c02dc2c35e1a2373c52af77e4e3ffad887cd888cd9a3c83e967b929dc5"
         )
 
         if headers:
@@ -65,28 +67,48 @@ class TeamScraper:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-background-timer-throttling")
+        options.add_argument("--disable-renderer-backgrounding")
+        options.add_argument("--disable-features=VizDisplayCompositor")
+        options.add_argument("--remote-debugging-port=9222")
+        options.page_load_strategy = "eager"
 
         self.driver = webdriver.Chrome(
             service=Service(),
             options=options
         )
 
-        self.driver.set_page_load_timeout(30)
-        self.wait = WebDriverWait(self.driver, 10)
+        self.driver.set_page_load_timeout(60)
+        self.driver.implicitly_wait(10)
+        self.wait = WebDriverWait(self.driver, 30)
 
     def _wait_for_page(self):
-        self.wait.until(
-            lambda d: d.execute_script(
-                "return document.readyState"
-            ) == "complete"
-        )
+        try:
+            self.wait.until(
+                lambda d: d.execute_script(
+                    "return document.readyState"
+                ) == "complete"
+            )
+        except TimeoutException:
+            # If Chrome hangs waiting for resources, continue with whatever loaded.
+            pass
 
-    def _load_page(self, player_id):
-        url = self.BASE_URL.format(player_id)
-        self.driver.get(url)
-        self._wait_for_page()
-        return BeautifulSoup(self.driver.page_source, "lxml")
+    def _navigate(self, url, retries=2):
+        for attempt in range(retries):
+            try:
+                self.driver.get(url)
+                self._wait_for_page()
+                return BeautifulSoup(self.driver.page_source, "lxml")
+            except TimeoutException as exc:
+                if attempt == retries - 1:
+                    raise
+                try:
+                    self.driver.execute_script("window.stop();")
+                except Exception:
+                    pass
+                time.sleep(2)
+        raise TimeoutException(f"Could not load page: {url}")
 
     def close(self):
         self.driver.quit()
@@ -99,11 +121,7 @@ class TeamScraper:
 
     def get_teams_from_league(self, league_id):
         url = f"https://www.fotmob.com/leagues/{league_id}"
-
-        self.driver.get(url)
-        self._wait_for_page()
-
-        soup = BeautifulSoup(self.driver.page_source, "lxml")
+        soup = self._navigate(url)
 
         teams = set()
 
@@ -116,10 +134,7 @@ class TeamScraper:
     def get_players_from_team(self, team_url):
         team_url = team_url.replace("overview", "squad")
 
-        self.driver.get(team_url)
-        self._wait_for_page()
-
-        soup = BeautifulSoup(self.driver.page_source, "lxml")
+        soup = self._navigate(team_url)
 
         players = set()
 
@@ -154,11 +169,7 @@ class TeamScraper:
 
     def get_comps_and_seaons(self, player_id):
         url = f"https://www.fotmob.com/en/players/{player_id}"
-
-        self.driver.get(url)
-        self._wait_for_page()
-
-        soup = BeautifulSoup(self.driver.page_source, "lxml")
+        soup = self._navigate(url)
 
         seasons = soup.find_all("optgroup")
 

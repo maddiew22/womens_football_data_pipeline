@@ -24,7 +24,11 @@ LEAGUES = {
 
 for league_id, league_name in LEAGUES.items():
     print(f"Scraping league: {league_name}")
-    teams = team_scraper.get_teams_from_league(league_id)
+    try:
+        teams = team_scraper.get_teams_from_league(league_id)
+    except Exception as e:
+        print(f"Failed to get teams for league {league_name}: {e}")
+        continue
     print(teams)
     team_player_map = {}
 
@@ -33,8 +37,8 @@ for league_id, league_name in LEAGUES.items():
         try:
             team_players = team_scraper.get_players_from_team(team_url)
             team_player_map[team_url] = team_players
-        except:
-            print(f"Failed to get players for team: {team_url}")
+        except Exception as e:
+            print(f"Failed to get players for team: {team_url}: {e}")
             continue
         
         for player_id in team_player_map[team_url]:
