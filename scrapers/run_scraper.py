@@ -1,4 +1,4 @@
-from scrapers.fotmob_scraper import FotMobScraper
+from scrapers.fotmob_scraper_v2 import FotMobScraper, TeamScraper
 from postgres_conn import PostgresDB
 import pandas as pd
 import os
@@ -11,6 +11,7 @@ db = PostgresDB(
 db.connect()
 
 scraper = FotMobScraper()
+team_scraper = TeamScraper()
 
 LEAGUES = {
     9227: "WSL",
@@ -21,18 +22,47 @@ LEAGUES = {
     10178: "Serie A Femminile",
 }
 
-for league_id, league_name in LEAGUES.items():
-    print(f"Scraping league: {league_name}")
-    teams = scraper.get_teams_from_league(league_id)
-    team_player_map = {}
+try:
+    for league_id, league_name in LEAGUES.items():
+        print(f"Scraping league: {league_name}")
+        try:
+            teams = team_scraper.get_teams_from_league(league_id)
+        except Exception as e:
+            print(f"Failed to get teams for league {league_name}: {e}")
+            continue
+        print(teams)
+        team_player_map = {}
 
-    for team_url in teams:
-        team_players = scraper.get_players_from_team(team_url)
-        team_player_map[team_url] = team_players
+        for team_url in teams:
+            print(team_url)
+            try:
+                team_players = team_scraper.get_players_from_team(team_url)
+                team_player_map[team_url] = team_players
+            except Exception as e:
+                print(f"Failed to get players for team: {team_url}: {e}")
+                continue
+            
+            for player_id in team_player_map[team_url]:
+                try:
+                    print(player_id)
+                    bio = scraper.get_player_bio(player_id)
+                    db.save_raw_json(player_id, bio)
 
-        for player_id in team_player_map[team_url]:
-            bio = scraper.get_player_bio(player_id)
-            season_overview = scraper.get_current_season_overview(player_id)
-            db.save_player_fotmob_data(bio, season_overview, season_stats_df=pd.DataFrame())
-db.close()
-scraper.close()
+                    seasons = team_scraper.get_comps_and_seaons(player_id)
+                    for season in seasons:
+                        comp_stats = scraper.get_season_stats(player_id, season["value"])
+                        db.save_raw_json_season_stats(player_id, season["season_group"], season["competition"], comp_stats)
+                        
+                except Exception as e:
+                    print(e)
+                    print(f"Failed to get data for player: {player_id}")
+                    continue
+finally:
+    try:
+        db.close()
+    except Exception:
+        pass
+    try:
+        team_scraper.close()
+    except Exception:
+        pass
