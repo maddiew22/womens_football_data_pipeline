@@ -3,10 +3,11 @@ import requests
 from bs4 import BeautifulSoup
 from typing import List, Set
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, InvalidSessionIdException, WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 
 
 class FotMobScraper:
@@ -77,14 +78,9 @@ class TeamScraper:
         options.add_argument("--disable-setuid-sandbox")
         options.page_load_strategy = "eager"
 
-        self.driver = webdriver.Chrome(
-            service=Service(),
-            options=options
-        )
-
-        self.driver.set_page_load_timeout(60)
-        self.driver.implicitly_wait(10)
-        self.wait = WebDriverWait(self.driver, 30)
+        # store options for reinitialization
+        self.options = options
+        self._init_driver()
 
     def _wait_for_page(self):
         try:
@@ -100,25 +96,55 @@ class TeamScraper:
     def _navigate(self, url, retries=2):
         for attempt in range(retries):
             try:
+                # ensure driver is alive
+                if not getattr(self, "driver", None) or getattr(self.driver, "session_id", None) is None:
+                    self._init_driver()
+
                 self.driver.get(url)
                 self._wait_for_page()
                 return BeautifulSoup(self.driver.page_source, "lxml")
-            except TimeoutException as exc:
-                if attempt == retries - 1:
-                    raise
+            except (TimeoutException, InvalidSessionIdException, WebDriverException) as exc:
+                # Try to restart the driver on fatal errors
                 try:
-                    self.driver.execute_script("window.stop();")
+                    self.driver.quit()
                 except Exception:
                     pass
+                self.driver = None
+                if attempt == retries - 1:
+                    raise
                 time.sleep(2)
+                self._init_driver()
         raise TimeoutException(f"Could not load page: {url}")
 
+    def _init_driver(self):
+        """Initialize Chrome WebDriver using webdriver-manager to ensure a matching chromedriver."""
+        try:
+            self.driver = webdriver.Chrome(
+                service=Service(ChromeDriverManager().install()),
+                options=self.options
+            )
+            self.driver.set_page_load_timeout(60)
+            self.driver.implicitly_wait(10)
+            self.wait = WebDriverWait(self.driver, 30)
+        except Exception:
+            try:
+                self.driver.quit()
+            except Exception:
+                pass
+            self.driver = None
+            raise
+
     def close(self):
-        self.driver.quit()
+        if getattr(self, "driver", None):
+            try:
+                self.driver.quit()
+            except Exception:
+                pass
 
     def __del__(self):
         try:
-            self.driver.quit()
+            if getattr(self, "driver", None):
+                self.driver.quit()
         except Exception:
             pass
 
