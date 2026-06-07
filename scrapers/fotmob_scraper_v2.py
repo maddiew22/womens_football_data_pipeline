@@ -30,7 +30,7 @@ class FotMobScraper:
 
         self.session.cookies.set(
             "turnstile_verified",
-            "1.1780766293.b95920c02dc2c35e1a2373c52af77e4e3ffad887cd888cd9a3c83e967b929dc5"
+            "1.1780856539.7bafe3fe9400c85658b8827b9a6772a409dc6d89eaa8870b3e7b6be5e7bc7342"
         )
 
         if headers:

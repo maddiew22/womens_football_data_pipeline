@@ -20,6 +20,7 @@ LEAGUES = {
     9676: "Frauen Bundesliga",
     9677: "Premiere League Feminine",
     10178: "Serie A Femminile",
+    9375: "Women's Champions League"
 }
 
 try:
@@ -46,12 +47,19 @@ try:
                 try:
                     print(player_id)
                     bio = scraper.get_player_bio(player_id)
-                    db.save_raw_json(player_id, bio)
+                    if bio:
+                        db.save_raw_json(player_id, bio)
 
                     seasons = team_scraper.get_comps_and_seaons(player_id)
-                    for season in seasons:
-                        comp_stats = scraper.get_season_stats(player_id, season["value"])
-                        db.save_raw_json_season_stats(player_id, season["season_group"], season["competition"], comp_stats)
+                    current_season_comps = [
+                        season
+                        for season in seasons
+                        if str(season["value"]).startswith("0")
+                    ]
+                    for comp in current_season_comps:
+                        comp_stats = scraper.get_season_stats(player_id, comp["value"])
+                        if comp_stats:
+                            db.save_raw_json_season_stats(player_id, comp["season_group"], comp["competition"], comp_stats)
                         
                 except Exception as e:
                     print(e)
