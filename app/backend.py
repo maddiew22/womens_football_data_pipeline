@@ -85,3 +85,12 @@ def get_player_bio(player_id: int):
         WHERE player_id = {player_id}
     """
     return run_query(query)
+
+@app.get("/players/stats/{player_id}")
+def get_player_stats(player_id: int):
+    query = f"""
+        SELECT *
+        FROM workspace.fotmob.player_stats_processed
+        WHERE player_id = {player_id}
+    """
+    return run_query(query)
