@@ -5,9 +5,7 @@ from typing import List, Set
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, InvalidSessionIdException, WebDriverException
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
 
 
 class FotMobScraper:
@@ -63,19 +61,19 @@ class FotMobScraper:
 class TeamScraper:
     def __init__(self):
         options = Options()
-        options.add_argument("--headless=new")
+        options.add_argument("--headless")
+
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+
         options.add_argument("--disable-gpu")
         options.add_argument("--window-size=1920,1080")
+
         options.add_argument("--disable-extensions")
-        options.add_argument("--disable-background-timer-throttling")
-        options.add_argument("--disable-renderer-backgrounding")
-        options.add_argument("--disable-features=VizDisplayCompositor")
-        options.add_argument("--remote-debugging-port=9222")
-        options.add_argument("--single-process")
-        options.add_argument("--no-zygote")
-        options.add_argument("--disable-setuid-sandbox")
+
+        options.add_argument(
+            "--disable-blink-features=AutomationControlled"
+        )
         options.page_load_strategy = "eager"
 
         # store options for reinitialization
@@ -116,23 +114,24 @@ class TeamScraper:
                 self._init_driver()
         raise TimeoutException(f"Could not load page: {url}")
 
-    def _init_driver(self):
-        """Initialize Chrome WebDriver using webdriver-manager to ensure a matching chromedriver."""
-        try:
-            self.driver = webdriver.Chrome(
-                service=Service(ChromeDriverManager().install()),
-                options=self.options
-            )
-            self.driver.set_page_load_timeout(60)
-            self.driver.implicitly_wait(10)
-            self.wait = WebDriverWait(self.driver, 30)
-        except Exception:
-            try:
-                self.driver.quit()
-            except Exception:
-                pass
-            self.driver = None
-            raise
+def _init_driver(self):
+    try:
+        self.driver = webdriver.Chrome(
+            options=self.options
+        )
+
+        self.driver.set_page_load_timeout(60)
+        self.driver.implicitly_wait(10)
+
+        self.wait = WebDriverWait(
+            self.driver,
+            30
+        )
+
+    except Exception as e:
+        print("Chrome startup failed:")
+        print(e)
+        raise
 
     def close(self):
         if getattr(self, "driver", None):
