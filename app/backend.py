@@ -45,6 +45,14 @@ def run_query(query: str):
         columns = [desc[0] for desc in cursor.description]
         df = pd.DataFrame(rows, columns=columns)
         df = df.astype(str)
+        df = df.drop(columns=["penalties_awarded", "penalties_awarded_percentile", 
+                              "penalty_goals", "penalty_goals_percentile", 
+                              "xg_excl_penalty", "xg_excl_penalty_percentile", 
+                              "penalties_awarded_per90", "penalty_goals_per90", 
+                              "xg_excl_penalty_per90", "penalties_awarded_percentile_per90", 
+                              "penalty_goals_percentile_per90", "xg_excl_penalty_percentile_per90",
+                              "clean_sheets", "clean_sheets_per90", "clean_sheets_percentile", "clean_sheets_percentile_per90",
+                              "blocked_scoring_attempt", "blocked_scoring_attempt_per90", "blocked_scoring_attempt_percentile", "blocked_scoring_attempt_percenitle_per90"], errors="ignore")
         df = df.replace([np.nan, np.inf, -np.inf], None)
         return df.to_dict(orient="records")
 
