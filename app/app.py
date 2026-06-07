@@ -7,6 +7,15 @@ import pandas as pd
 
 BASE_URL = "http://127.0.0.1:8000"
 
+STATS_GROUPS = {
+    "Defence": ["tackles", "tackles_per90", "defensive_actions", "defensive_actions_per90", "duels_won", "duels_won_per90", "dribbled_past", "dribbled_past_per90", "interceptions", "interceptions_per90", "recoveries", "recoveries_per90", "clearances", "clearances_per90", "possession_won_final_3rd", "possession_won_final_3rd_per90", "aerials_won", "aerials_won_per90", "clean_sheets", "goals_conceded_while_on_pitch", "goals_conceded_while_on_pitch_per90"],
+    "Offence": ["goals", "goals_per90", "assists", "assists_per90", "big_chances_created", "big_chances_created_per90", "chances_created", "chances_created_per90", "shots", "shots_per90", "shots_on_target", "shots_on_target_per90", "dribbles", "dribbles_per90", "dribbles_success_rate", "touches_in_opposition_box", "touches_in_opposition_box_per90"],
+    "Passing": ["accurate_passes", "accurate_passes_per90", "pass_accuracy", 
+                "accurate_long_balls", "accurate_long_balls_per90", "long_ball_accuracy", "successful_crosses", "successful_crosses_per90", "cross_accuracy"],
+    "Discipline": ["fouls_committed", "fouls_committed_per90", "yellow_cards", "yellow_cards_per90", "red_cards", 
+                   "red_cards_per90", "penalties_conceded", "penalties_conceded_per90"]
+}
+
 def get_players():
     try:
         response = requests.get(f"{BASE_URL}/players")
@@ -159,19 +168,42 @@ with pg1:
         if player_stats is not None:
             st.subheader("Player Stats")
             st.write(player_stats)
-            
+
+            st.subheader("Seasonal Stats")
+            season = st.selectbox(
+                "Season",
+                sorted(player_stats["season"].unique())
+            )
+            # Competition selector filtered by season
+            competition = st.selectbox(
+                "Competition",
+                sorted(
+                    player_stats.loc[player_stats["season"] == season, "competition"].unique()
+                )
+            )
+            row = player_stats[
+                (player_stats["season"] == season)
+                & (player_stats["competition"] == competition)
+            ].iloc[0]
+            seasonal_stats = row.to_frame().T
+            #st.caption(f"Matches Played: {seasonal_stats[""]} • Minutes Played: {country}")
+
             left, right = st.columns(2)
             with left:
                 with st.container(border=True):
-                    st.subheader("Defense")
+                    st.subheader("Defence")
+                    st.dataframe(seasonal_stats[STATS_GROUPS["Defence"]], hide_index=True)
                 with st.container(border=True):
                     st.subheader("Passing")
+                    st.dataframe(seasonal_stats[STATS_GROUPS["Passing"]], hide_index=True)
 
             with right:
                 with st.container(border=True):
-                    st.subheader("Offense")
+                    st.subheader("Offence")
+                    st.dataframe(seasonal_stats[STATS_GROUPS["Offence"]], hide_index=True)
                 with st.container(border=True):
                     st.subheader("Discipline")
+                    st.dataframe(seasonal_stats[STATS_GROUPS["Discipline"]], hide_index=True)
 
     with tab3:
         st.header("Compare to other players")
@@ -194,13 +226,13 @@ with pg1:
         left, right = st.columns(2)
         with left:
             with st.container(border=True):
-                st.subheader("Defense")
+                st.subheader("Defence")
             with st.container(border=True):
                 st.subheader("Passing")
 
         with right:
             with st.container(border=True):
-                st.subheader("Offense")
+                st.subheader("Offence")
             with st.container(border=True):
                 st.subheader("Discipline")
 
