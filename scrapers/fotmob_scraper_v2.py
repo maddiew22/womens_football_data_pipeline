@@ -4,6 +4,8 @@ from bs4 import BeautifulSoup
 from typing import List, Set
 from selenium import webdriver
 from selenium.common.exceptions import TimeoutException, InvalidSessionIdException, WebDriverException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
 
@@ -149,10 +151,23 @@ class TeamScraper:
 
     def get_teams_from_league(self, league_id):
         url = f"https://www.fotmob.com/leagues/{league_id}"
-        soup = self._navigate(url)
+        self.driver.get(url)
+        self._wait_for_page()
+
+        try:
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "a[href*='/teams/']")
+                )
+            )
+        except TimeoutException:
+            # Fall back to whatever loaded; some leagues may delay rendering
+            pass
+
+        time.sleep(2)
+        soup = BeautifulSoup(self.driver.page_source, "lxml")
 
         teams = set()
-
         for a in soup.find_all("a", href=True):
             if "/teams/" in a["href"]:
                 teams.add("https://www.fotmob.com" + a["href"])
@@ -162,7 +177,20 @@ class TeamScraper:
     def get_players_from_team(self, team_url):
         team_url = team_url.replace("overview", "squad")
 
-        soup = self._navigate(team_url)
+        self.driver.get(team_url)
+        self._wait_for_page()
+
+        try:
+            self.wait.until(
+                EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, "div.css-1qm9gpo-Column.e152ovrx0")
+                )
+            )
+        except TimeoutException:
+            pass
+
+        time.sleep(1)
+        soup = BeautifulSoup(self.driver.page_source, "lxml")
 
         players = set()
 
