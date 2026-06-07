@@ -114,24 +114,24 @@ class TeamScraper:
                 self._init_driver()
         raise TimeoutException(f"Could not load page: {url}")
 
-def _init_driver(self):
-    try:
-        self.driver = webdriver.Chrome(
-            options=self.options
-        )
+    def _init_driver(self):
+        try:
+            self.driver = webdriver.Chrome(
+                options=self.options
+            )
 
-        self.driver.set_page_load_timeout(60)
-        self.driver.implicitly_wait(10)
+            self.driver.set_page_load_timeout(60)
+            self.driver.implicitly_wait(10)
 
-        self.wait = WebDriverWait(
-            self.driver,
-            30
-        )
+            self.wait = WebDriverWait(
+                self.driver,
+                30
+            )
 
-    except Exception as e:
-        print("Chrome startup failed:")
-        print(e)
-        raise
+        except Exception as e:
+            print("Chrome startup failed:")
+            print(e)
+            raise
 
     def close(self):
         if getattr(self, "driver", None):
