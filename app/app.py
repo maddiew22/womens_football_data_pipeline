@@ -262,244 +262,246 @@ with pg1:
                         st.write("**Secondary Positions**")
                         st.write(secondary_display)
 
-    with tab2:
-        st.header("Stats")
-        player_stats = get_player_stats(selected_id)
-        if player_stats is not None:
-            player_stats = player_stats.sort_values("season", ascending=False)
-            st.subheader("Player Stats")
+        with tab2:
+            st.header("Stats")
+            player_stats = get_player_stats(selected_id)
+            if player_stats is not None:
+                player_stats = player_stats.sort_values("season", ascending=False)
+                st.subheader("Player Stats")
 
-            st.dataframe(
-                player_stats.drop(
-                    columns=[
-                        col for col in player_stats.columns
-                        if col.endswith("percentile")
-                        or col.endswith("percentile_per90")
-                    ] + ["player_id"],
-                    errors="ignore"
-                ),hide_index=True
-            )
-            st.subheader("Seasonal Stats")
-            season = st.selectbox(
-                "Season",
-                sorted(player_stats["season"].unique(), reverse=True)
-            )
-            # Competition selector filtered by season
-            competition = st.selectbox(
-                "Competition",
-                sorted(
-                    player_stats.loc[player_stats["season"] == season, "competition"].unique()
-                )
-            )
-            row = player_stats[
-                (player_stats["season"] == season)
-                & (player_stats["competition"] == competition)
-            ].iloc[0]
-            seasonal_stats = row.to_frame().T
-            seasonal_stats = seasonal_stats.apply(pd.to_numeric, errors="ignore")
-            seasonal_stats = seasonal_stats.replace(["None", "nan", "NaN", ""], np.nan)
-            #st.caption(f"Matches Played: {seasonal_stats[""]} • Minutes Played: {country}")
-
-            radar_mode = st.radio(
-                "Radar type",
-                ["Regular", "Per90"],
-                horizontal=True
-            )
-            suffix = "percentile_per90" if radar_mode == "Per90" else "percentile"
-            left, right = st.columns(2)
-            with left:
-                with st.container(border=True):
-                    st.subheader("Defence")
-
-                    labels, values = build_radar(
-                        seasonal_stats,
-                        STATS_GROUPS["Defence"],
-                        suffix=suffix
-                    )
-                    if values:
-                        plot_radar(labels, values, "Defence")
-                    st.divider()
-                    st.dataframe(
-                        clean_display(seasonal_stats, STATS_GROUPS["Defence"]),
-                        hide_index=True
-                    )
-
-                with st.container(border=True):
-                    st.subheader("Passing")
-                    labels, values = build_radar(
-                        seasonal_stats,
-                        STATS_GROUPS["Passing"],
-                        suffix=suffix
-                    )
-                    if values:
-                        plot_radar(labels, values, "Passing")
-                    st.divider()
-                    st.dataframe(
-                        clean_display(seasonal_stats, STATS_GROUPS["Passing"]),
-                        hide_index=True
-                    )
-
-            with right:
-                with st.container(border=True):
-                    st.subheader("Offence")
-                    labels, values = build_radar(
-                        seasonal_stats,
-                        STATS_GROUPS["Offence"],
-                        suffix=suffix
-                    )
-                    if values:
-                        plot_radar(labels, values, "Offence")
-
-                    st.divider()
-
-                    st.dataframe(
-                        clean_display(seasonal_stats, STATS_GROUPS["Offence"]),
-                        hide_index=True
-                    )
-
-                with st.container(border=True):
-                    st.subheader("Discipline")
-                    labels, values = build_radar(
-                        seasonal_stats,
-                        STATS_GROUPS["Discipline"],
-                        suffix=suffix
-                    )
-                    if values:
-                        plot_radar(labels, values, "Discipline")
-                    st.divider()
-                    st.dataframe(
-                        clean_display(seasonal_stats, STATS_GROUPS["Discipline"]),
-                        hide_index=True
-                    )
-    with tab3:
-        st.header("Compare Players")
-        selected_names = st.multiselect(
-            "Players",
-            sorted(player_map.keys()),
-            default=[selected_name]
-        )
-
-        if len(selected_names) < 2:
-            st.info("Select at least 2 players to compare.")
-        else:
-
-            radar_mode = st.radio(
-                "Radar Type",
-                ["Regular", "Per90"],
-                horizontal=True,
-                key="compare_radar_mode"
-            )
-
-            suffix = (
-                "percentile_per90"
-                if radar_mode == "Per90"
-                else "percentile"
-            )
-            st.subheader("Player Seasons")
-            comparison_rows = {}
-            for name in selected_names:
-                player_id = player_map[name]
-                df = get_player_stats(player_id)
-                if df is None or df.empty:
-                    continue
-                df = df.sort_values("season", ascending=False)
-                with st.expander(name, expanded=True):
-                    season = st.selectbox(
-                        "Season",
-                        sorted(
-                            df["season"].unique(),
-                            reverse=True
-                        ),
-                        key=f"season_{player_id}"
-                    )
-                    competition = st.selectbox(
-                        "Competition",
-                        sorted(
-                            df.loc[
-                                df["season"] == season,
-                                "competition"
-                            ].unique()
-                        ),
-                        key=f"competition_{player_id}"
-                    )
-                    selected_row = df[
-                        (df["season"] == season)
-                        & (df["competition"] == competition)
-                    ]
-                    if selected_row.empty:
-                        st.warning(
-                            "No data found for this selection."
-                        )
-                        continue
-                    row_df = selected_row.iloc[0].to_frame().T
-                    row_df = row_df.apply(
-                        pd.to_numeric,
+                st.dataframe(
+                    player_stats.drop(
+                        columns=[
+                            col for col in player_stats.columns
+                            if col.endswith("percentile")
+                            or col.endswith("percentile_per90")
+                        ] + ["player_id"],
                         errors="ignore"
+                    ),hide_index=True
+                )
+                st.subheader("Seasonal Stats")
+                season = st.selectbox(
+                    "Season",
+                    sorted(player_stats["season"].unique(), reverse=True)
+                )
+                # Competition selector filtered by season
+                competition = st.selectbox(
+                    "Competition",
+                    sorted(
+                        player_stats.loc[player_stats["season"] == season, "competition"].unique()
                     )
-                    row_df = row_df.replace(
-                        ["None", "nan", "NaN", ""],
-                        np.nan
-                    )
-                    comparison_rows[name] = row_df
-                    st.caption(
-                        f"Using {season} • {competition}"
-                    )
-            if comparison_rows:
-                st.divider()
+                )
+                row = player_stats[
+                    (player_stats["season"] == season)
+                    & (player_stats["competition"] == competition)
+                ].iloc[0]
+                seasonal_stats = row.to_frame().T
+                seasonal_stats = seasonal_stats.apply(pd.to_numeric, errors="ignore")
+                seasonal_stats = seasonal_stats.replace(["None", "nan", "NaN", ""], np.nan)
+                #st.caption(f"Matches Played: {seasonal_stats[""]} • Minutes Played: {country}")
+
+                radar_mode = st.radio(
+                    "Radar type",
+                    ["Regular", "Per90"],
+                    horizontal=True
+                )
+                suffix = "percentile_per90" if radar_mode == "Per90" else "percentile"
                 left, right = st.columns(2)
                 with left:
                     with st.container(border=True):
                         st.subheader("Defence")
-                        plot_comparison_radar(
-                            comparison_rows,
+
+                        labels, values = build_radar(
+                            seasonal_stats,
                             STATS_GROUPS["Defence"],
-                            "Defence Comparison",
-                            suffix
+                            suffix=suffix
                         )
+                        if values:
+                            plot_radar(labels, values, "Defence")
+                        st.divider()
+                        st.dataframe(
+                            clean_display(seasonal_stats, STATS_GROUPS["Defence"]),
+                            hide_index=True
+                        )
+
                     with st.container(border=True):
                         st.subheader("Passing")
-                        plot_comparison_radar(
-                            comparison_rows,
+                        labels, values = build_radar(
+                            seasonal_stats,
                             STATS_GROUPS["Passing"],
-                            "Passing Comparison",
-                            suffix
+                            suffix=suffix
                         )
+                        if values:
+                            plot_radar(labels, values, "Passing")
+                        st.divider()
+                        st.dataframe(
+                            clean_display(seasonal_stats, STATS_GROUPS["Passing"]),
+                            hide_index=True
+                        )
+
                 with right:
                     with st.container(border=True):
                         st.subheader("Offence")
-                        plot_comparison_radar(
-                            comparison_rows,
+                        labels, values = build_radar(
+                            seasonal_stats,
                             STATS_GROUPS["Offence"],
-                            "Offence Comparison",
-                            suffix
+                            suffix=suffix
+                        )
+                        if values:
+                            plot_radar(labels, values, "Offence")
+
+                        st.divider()
+
+                        st.dataframe(
+                            clean_display(seasonal_stats, STATS_GROUPS["Offence"]),
+                            hide_index=True
                         )
 
                     with st.container(border=True):
                         st.subheader("Discipline")
-                        plot_comparison_radar(
-                            comparison_rows,
+                        labels, values = build_radar(
+                            seasonal_stats,
                             STATS_GROUPS["Discipline"],
-                            "Discipline Comparison",
-                            suffix
+                            suffix=suffix
                         )
-                st.divider()
-                st.subheader("Selected Data")
-                for name, df in comparison_rows.items():
-                    with st.expander(f"{name} Data",expanded=False):
+                        if values:
+                            plot_radar(labels, values, "Discipline")
+                        st.divider()
                         st.dataframe(
-                            df.drop(
-                                columns=[
-                                    c
-                                    for c in df.columns
-                                    if c.endswith("percentile")
-                                    or c.endswith(
-                                        "percentile_per90"
-                                    )
-                                ],
-                                errors="ignore"
-                            ),
+                            clean_display(seasonal_stats, STATS_GROUPS["Discipline"]),
                             hide_index=True
                         )
+        with tab3:
+            st.header("Compare Players")
+            selected_names = st.multiselect(
+                "Players",
+                sorted(player_map.keys()),
+                default=[selected_name]
+            )
+
+            if len(selected_names) < 2:
+                st.info("Select at least 2 players to compare.")
+            else:
+
+                radar_mode = st.radio(
+                    "Radar Type",
+                    ["Regular", "Per90"],
+                    horizontal=True,
+                    key="compare_radar_mode"
+                )
+
+                suffix = (
+                    "percentile_per90"
+                    if radar_mode == "Per90"
+                    else "percentile"
+                )
+                st.subheader("Player Seasons")
+                comparison_rows = {}
+                for name in selected_names:
+                    player_id = player_map[name]
+                    df = get_player_stats(player_id)
+                    if df is None or df.empty:
+                        continue
+                    df = df.sort_values("season", ascending=False)
+                    with st.expander(name, expanded=True):
+                        season = st.selectbox(
+                            "Season",
+                            sorted(
+                                df["season"].unique(),
+                                reverse=True
+                            ),
+                            key=f"season_{player_id}"
+                        )
+                        competition = st.selectbox(
+                            "Competition",
+                            sorted(
+                                df.loc[
+                                    df["season"] == season,
+                                    "competition"
+                                ].unique()
+                            ),
+                            key=f"competition_{player_id}"
+                        )
+                        selected_row = df[
+                            (df["season"] == season)
+                            & (df["competition"] == competition)
+                        ]
+                        if selected_row.empty:
+                            st.warning(
+                                "No data found for this selection."
+                            )
+                            continue
+                        row_df = selected_row.iloc[0].to_frame().T
+                        row_df = row_df.apply(
+                            pd.to_numeric,
+                            errors="ignore"
+                        )
+                        row_df = row_df.replace(
+                            ["None", "nan", "NaN", ""],
+                            np.nan
+                        )
+                        comparison_rows[name] = row_df
+                        st.caption(
+                            f"Using {season} • {competition}"
+                        )
+                if comparison_rows:
+                    st.divider()
+                    left, right = st.columns(2)
+                    with left:
+                        with st.container(border=True):
+                            st.subheader("Defence")
+                            plot_comparison_radar(
+                                comparison_rows,
+                                STATS_GROUPS["Defence"],
+                                "Defence Comparison",
+                                suffix
+                            )
+                        with st.container(border=True):
+                            st.subheader("Passing")
+                            plot_comparison_radar(
+                                comparison_rows,
+                                STATS_GROUPS["Passing"],
+                                "Passing Comparison",
+                                suffix
+                            )
+                    with right:
+                        with st.container(border=True):
+                            st.subheader("Offence")
+                            plot_comparison_radar(
+                                comparison_rows,
+                                STATS_GROUPS["Offence"],
+                                "Offence Comparison",
+                                suffix
+                            )
+
+                        with st.container(border=True):
+                            st.subheader("Discipline")
+                            plot_comparison_radar(
+                                comparison_rows,
+                                STATS_GROUPS["Discipline"],
+                                "Discipline Comparison",
+                                suffix
+                            )
+                    st.divider()
+                    st.subheader("Selected Data")
+                    for name, df in comparison_rows.items():
+                        with st.expander(f"{name} Data",expanded=False):
+                            st.dataframe(
+                                df.drop(
+                                    columns=[
+                                        c
+                                        for c in df.columns
+                                        if c.endswith("percentile")
+                                        or c.endswith(
+                                            "percentile_per90"
+                                        )
+                                    ],
+                                    errors="ignore"
+                                ),
+                                hide_index=True
+                            )
+        # with tab4:
+        #     st.subheader("Trends")
 
 with pg2:
     st.header("Leaderboards")
