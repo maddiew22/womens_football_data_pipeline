@@ -18,7 +18,7 @@ if 'scrapers' in sys.modules:
 if 'scrapers.statsbomb' in sys.modules:
     del sys.modules['scrapers.statsbomb']
 
-from scrapers.statsbomb import plot_pass_map, get_womens_base_competitions
+from scrapers.statsbomb import plot_pass_map, get_womens_base_competitions, plot_heat_map
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -386,7 +386,7 @@ with pg1:
                             hide_index=True
                         )
 
-            st.subheader("Passing Maps")
+            st.subheader("Passing and Heat Maps")
             
             # Get available competitions from player's stats
             player_stats = get_player_stats(selected_id)
@@ -410,13 +410,13 @@ with pg1:
                     common = []
 
                 if not common:
-                    st.warning("No available pass map data")
+                    st.warning("No available map data")
                     options = []
                 else:
                     options = common
 
                 selected_comp = st.selectbox(
-                    "Competition for pass map",
+                    "Competition for pass/heat map",
                     options,
                     key="pass_map_comp"
                 )
@@ -425,8 +425,16 @@ with pg1:
                     fig, passes_completed, passes_failed, passes_received = plot_pass_map(selected_name, competition_name=selected_comp)
                     st.pyplot(fig)
                     st.caption(f"Completed passes from player: {passes_completed} | Failed: {passes_failed} | Received: {passes_received}")
+                    fig, total_actions, def_half_actions, off_half_actions = plot_heat_map(selected_name, competition_name=selected_comp)
+                    st.pyplot(fig)
+                    st.caption(
+                        f"Total actions: {passes_completed} | "
+                        f"Defensive Half Utilization: {def_half_actions:.1f}% | "
+                        f"Offensive Half Utilization: {off_half_actions:.1f}%" 
+                    )
                 except Exception as e:
-                    st.info(f"Could not generate pass map, not enough data found")
+                    st.write(e)
+                    st.info(f"Could not generate maps, not enough data found")
         with tab3:
             st.header("Compare Players")
             selected_names = st.multiselect(

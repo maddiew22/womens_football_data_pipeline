@@ -6,6 +6,7 @@ from statsbombpy import sb
 import re
 from matplotlib.lines import Line2D
 import unicodedata
+import seaborn as sns
 
 def get_womens_base_competitions():
     competitions = sb.competitions()
@@ -84,9 +85,7 @@ def match_player_name(query: str, full_name: str) -> bool:
 
 
 def plot_pass_map(player, competition_name=None):
-
     competitions = sb.competitions()
-
     womens_comps = competitions[
         competitions["competition_gender"] == "female"
     ].copy()
@@ -94,15 +93,12 @@ def plot_pass_map(player, competition_name=None):
     womens_comps["season_year"] = (
         womens_comps["season_name"].str.extract(r"(\d{4})").astype(int)
     )
-
     womens_comps_sorted = womens_comps.sort_values(
         by="season_year",
         ascending=False
     )
-
     if competition_name:
         normalized_comp = competition_name.split("(")[0].strip()
-
         womens_comps_sorted["base_comp"] = womens_comps_sorted[
             "competition_name"
         ].str.replace(r"\s*\(\d{4}/\d{4}\)\s*", "", regex=True)
@@ -302,4 +298,146 @@ def plot_pass_map(player, competition_name=None):
         len(successful_passes),
         len(unsuccessful_passes),
         len(received_completed),
+    )
+
+def plot_heat_map(player, competition_name=None):
+    competitions = sb.competitions()
+    womens_comps = competitions[
+        competitions["competition_gender"] == "female"
+    ].copy()
+
+    womens_comps["season_year"] = (
+        womens_comps["season_name"].str.extract(r"(\d{4})").astype(int)
+    )
+
+    womens_comps_sorted = womens_comps.sort_values(
+        by="season_year",
+        ascending=False
+    )
+
+    if competition_name:
+        normalized_comp = competition_name.split("(")[0].strip().lower()
+
+        womens_comps_sorted["base_comp"] = womens_comps_sorted[
+            "competition_name"
+        ].str.replace(r"\s*\(\d{4}/\d{4}\)\s*", "", regex=True)
+
+        womens_comps_sorted = womens_comps_sorted[
+            womens_comps_sorted["base_comp"].str.lower() == normalized_comp
+        ]
+
+        if womens_comps_sorted.empty:
+            raise ValueError("Competition not found")
+
+    target_match = None
+    target_comp = None
+    matched_player_name = None
+
+    for _, comp_row in womens_comps_sorted.iterrows():
+        try:
+            matches = sb.matches(
+                competition_id=comp_row["competition_id"],
+                season_id=comp_row["season_id"]
+            )
+
+            matches["match_date"] = pd.to_datetime(matches["match_date"])
+            matches_sorted = matches.sort_values("match_date", ascending=False)
+        except:
+            continue
+
+        for _, match_row in matches_sorted.iterrows():
+            try:
+                lineups = sb.lineups(match_id=match_row["match_id"])
+
+                found_name = None
+
+                for squad in lineups.values():
+                    for pname in squad["player_name"].values:
+                        if match_player_name(player, pname):
+                            found_name = pname
+                            break
+                    if found_name:
+                        break
+
+                if found_name:
+                    matched_player_name = found_name
+                    target_match = match_row
+                    target_comp = comp_row
+                    break
+
+            except:
+                continue
+
+        if target_match is not None:
+            break
+
+    if target_match is None:
+        raise ValueError(f"No matches found for {player}")
+
+    match_id = target_match["match_id"]
+
+    events_df = sb.events(match_id=match_id)
+    events_df["player"] = events_df["player"].astype(str)
+
+    player_name_for_filter = matched_player_name if matched_player_name else player
+
+    player_events = events_df[
+        events_df["player"].str.lower() == player_name_for_filter.lower()
+    ].copy()
+
+    player_events = player_events.dropna(subset=["location"]).copy()
+
+    if player_events.empty:
+        raise ValueError("No event locations found for heat map")
+
+    player_events["x"] = player_events["location"].apply(lambda l: l[0])
+    player_events["y"] = player_events["location"].apply(lambda l: l[1])
+
+    fig, ax = plt.subplots(figsize=(16, 11))
+
+    pitch = Pitch(
+        pitch_type="statsbomb",
+        pitch_color="#1a1a1a",
+        line_color="#444444",
+        linewidth=2,
+    )
+
+    pitch.draw(ax=ax)
+
+    pitch.kdeplot(
+        player_events["x"],
+        player_events["y"],
+        ax=ax,
+        cmap="PuRd",
+        fill=True,
+        levels=100,
+        alpha=0.65
+    )
+
+    ax.scatter(
+        player_events["x"],
+        player_events["y"],
+        color="white",
+        edgecolors="black",
+        s=25,
+        alpha=0.35,
+        zorder=2
+    )
+
+    ax.set_title(
+        f"{player_name_for_filter} Heat Map\n{target_match['home_team']} vs {target_match['away_team']} ({target_match['match_date']})",
+        color="white"
+    )
+
+    fig.set_facecolor("#1a1a1a")
+
+    total_actions = len(player_events)
+    own_half_actions = len(player_events[player_events["x"] < 60])
+    opp_half_actions = len(player_events[player_events["x"] >= 60])
+
+    return (
+        fig,
+        total_actions,
+        (own_half_actions / total_actions) * 100,
+        (opp_half_actions / total_actions) * 100
     )
