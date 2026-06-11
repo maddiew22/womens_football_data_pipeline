@@ -7,6 +7,7 @@ import requests
 import pandas as pd
 import sys
 from pathlib import Path
+import plotly.express as px
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -30,6 +31,22 @@ STATS_GROUPS = {
     "Discipline": ["fouls_committed", "fouls_committed_per90", "yellow_cards", "yellow_cards_per90", "red_cards", 
                    "red_cards_per90", "penalties_conceded", "penalties_conceded_per90"]
 }
+
+COMPETITION_ALIASES = {
+    "fa women's super league": "wsl",
+    "fa women's super league": "women's super league",
+    "wsl": "women's super league",
+    "serie a femminile": "serie a women",
+    "national women's soccer league": "nwsl",
+    "uefa womens champions league": "uwcl",
+    "primera division femenina": "liga f",
+    "frauen-bundesliga": "frauen bundesliga"
+}
+
+def normalize_comp(name: str) -> str:
+    name = name.lower().strip()
+    name = re.sub(r"\s*\(\d{4}/\d{4}\)\s*", "", name)  # remove seasons
+    return COMPETITION_ALIASES.get(name, name)
 
 def get_players():
     try:
@@ -180,17 +197,26 @@ def plot_comparison_radar(player_data, cols, title, suffix):
         return
     labels = [c.replace("_", " ").title() for c in common_axes]
     fig = go.Figure()
-    for player_name, df in player_data.items():
+
+    colors = px.colors.qualitative.Safe
+    for i, (player_name, df) in enumerate(player_data.items()):
         values = [df[f"{col}_{suffix}"].iloc[0] for col in common_axes]
+        color = colors[i % len(colors)]
         fig.add_trace(
             go.Scatterpolar(
                 r=values + [values[0]],
                 theta=labels + [labels[0]],
                 fill="toself",
                 name=player_name,
-                opacity=0.35
+                line=dict(
+                    color=color,
+                    width=3
+                ),
+                fillcolor=color,
+                opacity=0.5
             )
         )
+
     fig.update_layout(
         title=title,
         polar=dict(radialaxis=dict(visible=True,range=[0, 100])),
@@ -280,237 +306,237 @@ with pg1:
             st.header("Stats")
             player_stats = get_player_stats(selected_id)
             if player_stats is not None:
-                player_stats = player_stats.sort_values("season", ascending=False)
-                st.subheader("Player Stats")
+                try:
+                    player_stats = player_stats.sort_values("season", ascending=False)
+                    st.subheader("Player Stats")
 
-                st.dataframe(
-                    player_stats.drop(
-                        columns=[
-                            col for col in player_stats.columns
-                            if col.endswith("percentile")
-                            or col.endswith("percentile_per90")
-                        ] + ["player_id"],
-                        errors="ignore"
-                    ),hide_index=True
-                )
-                st.subheader("Seasonal Stats")
-                season = st.selectbox(
-                    "Season",
-                    sorted(player_stats["season"].unique(), reverse=True)
-                )
-                # Competition selector filtered by season
-                competition = st.selectbox(
-                    "Competition",
-                    sorted(
-                        player_stats.loc[player_stats["season"] == season, "competition"].unique()
+                    st.dataframe(
+                        player_stats.drop(
+                            columns=[
+                                col for col in player_stats.columns
+                                if col.endswith("percentile")
+                                or col.endswith("percentile_per90")
+                            ] + ["player_id"],
+                            errors="ignore"
+                        ),hide_index=True
                     )
-                )
-                row = player_stats[
-                    (player_stats["season"] == season)
-                    & (player_stats["competition"] == competition)
-                ].iloc[0]
-                seasonal_stats = row.to_frame().T
-                seasonal_stats = seasonal_stats.apply(pd.to_numeric, errors="ignore")
-                seasonal_stats = seasonal_stats.replace(["None", "nan", "NaN", ""], np.nan)
-                #st.caption(f"Matches Played: {seasonal_stats[""]} • Minutes Played: {country}")
-
-                radar_mode = st.radio(
-                    "Radar type",
-                    ["Regular", "Per90"],
-                    horizontal=True
-                )
-                suffix = "percentile_per90" if radar_mode == "Per90" else "percentile"
-                left, right = st.columns(2)
-                with left:
-                    with st.container(border=True):
-                        st.subheader("Defence")
-
-                        labels, values = build_radar(
-                            seasonal_stats,
-                            STATS_GROUPS["Defence"],
-                            suffix=suffix
-                        )
-                        if values:
-                            plot_radar(labels, values, "Defence")
-                        st.divider()
-                        st.dataframe(
-                            clean_display(seasonal_stats, STATS_GROUPS["Defence"]),
-                            hide_index=True
-                        )
-
-                    with st.container(border=True):
-                        st.subheader("Passing")
-                        labels, values = build_radar(
-                            seasonal_stats,
-                            STATS_GROUPS["Passing"],
-                            suffix=suffix
-                        )
-                        if values:
-                            plot_radar(labels, values, "Passing")
-                        st.divider()
-                        st.dataframe(
-                            clean_display(seasonal_stats, STATS_GROUPS["Passing"]),
-                            hide_index=True
-                        )
-
-                with right:
-                    with st.container(border=True):
-                        st.subheader("Offence")
-                        labels, values = build_radar(
-                            seasonal_stats,
-                            STATS_GROUPS["Offence"],
-                            suffix=suffix
-                        )
-                        if values:
-                            plot_radar(labels, values, "Offence")
-
-                        st.divider()
-
-                        st.dataframe(
-                            clean_display(seasonal_stats, STATS_GROUPS["Offence"]),
-                            hide_index=True
-                        )
-
-                    with st.container(border=True):
-                        st.subheader("Discipline")
-                        labels, values = build_radar(
-                            seasonal_stats,
-                            STATS_GROUPS["Discipline"],
-                            suffix=suffix
-                        )
-                        if values:
-                            plot_radar(labels, values, "Discipline")
-                        st.divider()
-                        st.dataframe(
-                            clean_display(seasonal_stats, STATS_GROUPS["Discipline"]),
-                            hide_index=True
-                        )
-
-                st.subheader("Passing and Heat Maps")
-
-                player_stats = get_player_stats(selected_id)
-
-                if player_stats is not None and not player_stats.empty:
-
-                    player_competitions = sorted(
-                        player_stats["competition"].unique()
+                    st.subheader("Seasonal Stats")
+                    season = st.selectbox(
+                        "Season",
+                        sorted(player_stats["season"].unique(), reverse=True)
                     )
-
-                    player_bases = [
-                        c.split("(")[0].strip()
-                        for c in player_competitions
-                    ]
-
-                    sb_bases = get_womens_base_competitions()
-
-                    player_bases_lower = [
-                        b.lower()
-                        for b in player_bases
-                    ]
-
-                    sb_bases_lower = [
-                        b.lower()
-                        for b in sb_bases
-                    ]
-
-                    common_lower = (
-                        set(player_bases_lower)
-                        & set(sb_bases_lower)
+                    # Competition selector filtered by season
+                    competition = st.selectbox(
+                        "Competition",
+                        sorted(
+                            player_stats.loc[player_stats["season"] == season, "competition"].unique()
+                        )
                     )
+                    row = player_stats[
+                        (player_stats["season"] == season)
+                        & (player_stats["competition"] == competition)
+                    ].iloc[0]
+                    seasonal_stats = row.to_frame().T
+                    seasonal_stats = seasonal_stats.apply(pd.to_numeric, errors="ignore")
+                    seasonal_stats = seasonal_stats.replace(["None", "nan", "NaN", ""], np.nan)
+                    #st.caption(f"Matches Played: {seasonal_stats[""]} • Minutes Played: {country}")
 
-                    common = [
-                        b
-                        for b in sb_bases
-                        if b.lower() in common_lower
-                    ]
+                    radar_mode = st.radio(
+                        "Radar type",
+                        ["Regular", "Per90"],
+                        horizontal=True
+                    )
+                    suffix = "percentile_per90" if radar_mode == "Per90" else "percentile"
+                    left, right = st.columns(2)
+                    with left:
+                        with st.container(border=True):
+                            st.subheader("Defence")
 
-                    if not common:
-                        st.warning(
-                            "No available map data"
-                        )
-
-                    else:
-
-                        selected_comp = st.selectbox(
-                            "Competition",
-                            common,
-                            key="map_competition"
-                        )
-
-                        try:
-
-                            player_matches = get_player_matches(
-                                selected_name,
-                                selected_comp
+                            labels, values = build_radar(
+                                seasonal_stats,
+                                STATS_GROUPS["Defence"],
+                                suffix=suffix
+                            )
+                            if values:
+                                plot_radar(labels, values, "Defence")
+                            st.divider()
+                            st.dataframe(
+                                clean_display(seasonal_stats, STATS_GROUPS["Defence"]),
+                                hide_index=True
                             )
 
-                            if not player_matches:
+                        with st.container(border=True):
+                            st.subheader("Passing")
+                            labels, values = build_radar(
+                                seasonal_stats,
+                                STATS_GROUPS["Passing"],
+                                suffix=suffix
+                            )
+                            if values:
+                                plot_radar(labels, values, "Passing")
+                            st.divider()
+                            st.dataframe(
+                                clean_display(seasonal_stats, STATS_GROUPS["Passing"]),
+                                hide_index=True
+                            )
 
-                                st.warning(
-                                    "No matches found for this player."
+                    with right:
+                        with st.container(border=True):
+                            st.subheader("Offence")
+                            labels, values = build_radar(
+                                seasonal_stats,
+                                STATS_GROUPS["Offence"],
+                                suffix=suffix
+                            )
+                            if values:
+                                plot_radar(labels, values, "Offence")
+
+                            st.divider()
+
+                            st.dataframe(
+                                clean_display(seasonal_stats, STATS_GROUPS["Offence"]),
+                                hide_index=True
+                            )
+
+                        with st.container(border=True):
+                            st.subheader("Discipline")
+                            labels, values = build_radar(
+                                seasonal_stats,
+                                STATS_GROUPS["Discipline"],
+                                suffix=suffix
+                            )
+                            if values:
+                                plot_radar(labels, values, "Discipline")
+                            st.divider()
+                            st.dataframe(
+                                clean_display(seasonal_stats, STATS_GROUPS["Discipline"]),
+                                hide_index=True
+                            )
+
+                    st.subheader("Passing and Heat Maps")
+
+                    player_stats = get_player_stats(selected_id)
+
+                    if player_stats is not None and not player_stats.empty:
+
+                        player_competitions = sorted(
+                            player_stats["competition"].unique()
+                        )
+
+                        player_bases = [
+                            c.split("(")[0].strip()
+                            for c in player_competitions
+                        ]
+
+                        sb_bases = get_womens_base_competitions()
+
+                        player_norm_map = {
+                            normalize_comp(b): b
+                            for b in player_bases
+                        }
+
+                        sb_norm_map = {
+                            normalize_comp(b): b
+                            for b in sb_bases
+                        }
+
+                        common_keys = set(player_norm_map.keys()) & set(sb_norm_map.keys())
+
+                        common = [
+                            sb_norm_map[k]
+                            for k in sorted(common_keys)
+                        ]
+
+                        if not common:
+                            st.warning(
+                                "No available map data"
+                            )
+
+                        else:
+
+                            selected_comp = st.selectbox(
+                                "Competition",
+                                common,
+                                key="map_competition"
+                            )
+
+                            try:
+
+                                player_matches = get_player_matches(
+                                    selected_name,
+                                    selected_comp
                                 )
 
-                            else:
+                                if not player_matches:
 
-                                match_labels = [
-                                    m["label"]
-                                    for m in player_matches
-                                ]
-
-                                selected_match_label = st.selectbox(
-                                    "Match",
-                                    match_labels,
-                                    key="map_match"
-                                )
-
-                                selected_match = next(
-                                    m
-                                    for m in player_matches
-                                    if m["label"]
-                                    == selected_match_label
-                                )
-
-                                st.divider()
-
-                                st.subheader("Pass Map")
-
-                                fig, passes_completed, passes_failed, passes_received = (
-                                    plot_pass_map(
-                                        selected_match["player_name"],
-                                        selected_match["match_id"]
+                                    st.warning(
+                                        "No matches found for this player."
                                     )
-                                )
 
-                                st.pyplot(fig)
+                                else:
 
-                                st.caption(
-                                    f"Completed passes: {passes_completed} | "
-                                    f"Failed: {passes_failed} | "
-                                    f"Received: {passes_received}"
-                                )
+                                    match_labels = [
+                                        m["label"]
+                                        for m in player_matches
+                                    ]
 
-                                st.divider()
-
-                                st.subheader("Heat Map")
-
-                                fig, total_actions, def_half, off_half = (
-                                    plot_heat_map(
-                                        selected_match["player_name"],
-                                        selected_match["match_id"]
+                                    selected_match_label = st.selectbox(
+                                        "Match",
+                                        match_labels,
+                                        key="map_match"
                                     )
-                                )
 
-                                st.pyplot(fig)
+                                    selected_match = next(
+                                        m
+                                        for m in player_matches
+                                        if m["label"]
+                                        == selected_match_label
+                                    )
 
-                                st.caption(
-                                    f"Total actions: {total_actions} | "
-                                    f"Defensive Half Utilization: {def_half:.1f}% | "
-                                    f"Offensive Half Utilization: {off_half:.1f}%"
-                                )
+                                    st.divider()
 
-                        except Exception as e:
+                                    st.subheader("Pass Map")
 
-                            st.error(str(e))
+                                    fig, passes_completed, passes_failed, passes_received = (
+                                        plot_pass_map(
+                                            selected_match["player_name"],
+                                            selected_match["match_id"]
+                                        )
+                                    )
+
+                                    st.pyplot(fig)
+
+                                    st.caption(
+                                        f"Completed passes: {passes_completed} | "
+                                        f"Failed: {passes_failed} | "
+                                        f"Received: {passes_received}"
+                                    )
+
+                                    st.divider()
+
+                                    st.subheader("Heat Map")
+
+                                    fig, total_actions, def_half, off_half = (
+                                        plot_heat_map(
+                                            selected_match["player_name"],
+                                            selected_match["match_id"]
+                                        )
+                                    )
+
+                                    st.pyplot(fig)
+
+                                    st.caption(
+                                        f"Total actions: {total_actions} | "
+                                        f"Defensive Half Utilization: {def_half:.1f}% | "
+                                        f"Offensive Half Utilization: {off_half:.1f}%"
+                                    )
+
+                            except Exception as e:
+
+                                st.info("Not enough data")
+
+                except Exception:
+                    st.info("Not enough data for player")
         with tab3:
             st.header("Compare Players")
             selected_names = st.multiselect(
