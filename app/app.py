@@ -5,6 +5,20 @@ import streamlit as st
 import plotly.graph_objects as go
 import requests
 import pandas as pd
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Force reload of scrapers modules to pick up latest changes
+if 'scrapers' in sys.modules:
+    del sys.modules['scrapers']
+if 'scrapers.statsbomb' in sys.modules:
+    del sys.modules['scrapers.statsbomb']
+
+from scrapers.statsbomb import plot_pass_map, get_womens_base_competitions
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -371,6 +385,48 @@ with pg1:
                             clean_display(seasonal_stats, STATS_GROUPS["Discipline"]),
                             hide_index=True
                         )
+
+            st.subheader("Passing Maps")
+            
+            # Get available competitions from player's stats
+            player_stats = get_player_stats(selected_id)
+            if player_stats is not None and not player_stats.empty:
+                # competitions from player's seasonal stats (may include season suffix)
+                player_competitions = sorted(player_stats["competition"].unique())
+                # normalize to base names (strip season parentheses)
+                player_bases = [c.split("(")[0].strip() for c in player_competitions]
+
+                # competitions available in StatsBomb
+                sb_bases = get_womens_base_competitions()
+
+                # case-insensitive intersection while preserving display names from StatsBomb
+                player_bases_lower = [b.lower() for b in player_bases]
+                sb_bases_lower = [b.lower() for b in sb_bases]
+                common_lower = set(player_bases_lower) & set(sb_bases_lower)
+                if common_lower:
+                    # preserve StatsBomb ordering for display
+                    common = [b for b in sb_bases if b.lower() in common_lower]
+                else:
+                    common = []
+
+                if not common:
+                    st.warning("No available pass map data")
+                    options = []
+                else:
+                    options = common
+
+                selected_comp = st.selectbox(
+                    "Competition for pass map",
+                    options,
+                    key="pass_map_comp"
+                )
+
+                try:
+                    fig, passes_completed, passes_failed, passes_received = plot_pass_map(selected_name, competition_name=selected_comp)
+                    st.pyplot(fig)
+                    st.caption(f"Completed passes from player: {passes_completed} | Failed: {passes_failed} | Received: {passes_received}")
+                except Exception as e:
+                    st.info(f"Could not generate pass map, not enough data found")
         with tab3:
             st.header("Compare Players")
             selected_names = st.multiselect(
