@@ -18,7 +18,7 @@ if 'scrapers' in sys.modules:
 if 'scrapers.statsbomb' in sys.modules:
     del sys.modules['scrapers.statsbomb']
 
-from scrapers.statsbomb import plot_pass_map, get_womens_base_competitions, plot_heat_map
+from scrapers.statsbomb import plot_pass_map, get_womens_base_competitions, plot_heat_map, get_player_matches
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -386,55 +386,131 @@ with pg1:
                             hide_index=True
                         )
 
-            st.subheader("Passing and Heat Maps")
-            
-            # Get available competitions from player's stats
-            player_stats = get_player_stats(selected_id)
-            if player_stats is not None and not player_stats.empty:
-                # competitions from player's seasonal stats (may include season suffix)
-                player_competitions = sorted(player_stats["competition"].unique())
-                # normalize to base names (strip season parentheses)
-                player_bases = [c.split("(")[0].strip() for c in player_competitions]
+                st.subheader("Passing and Heat Maps")
 
-                # competitions available in StatsBomb
-                sb_bases = get_womens_base_competitions()
+                player_stats = get_player_stats(selected_id)
 
-                # case-insensitive intersection while preserving display names from StatsBomb
-                player_bases_lower = [b.lower() for b in player_bases]
-                sb_bases_lower = [b.lower() for b in sb_bases]
-                common_lower = set(player_bases_lower) & set(sb_bases_lower)
-                if common_lower:
-                    # preserve StatsBomb ordering for display
-                    common = [b for b in sb_bases if b.lower() in common_lower]
-                else:
-                    common = []
+                if player_stats is not None and not player_stats.empty:
 
-                if not common:
-                    st.warning("No available map data")
-                    options = []
-                else:
-                    options = common
-
-                selected_comp = st.selectbox(
-                    "Competition for pass/heat map",
-                    options,
-                    key="pass_map_comp"
-                )
-
-                try:
-                    fig, passes_completed, passes_failed, passes_received = plot_pass_map(selected_name, competition_name=selected_comp)
-                    st.pyplot(fig)
-                    st.caption(f"Completed passes from player: {passes_completed} | Failed: {passes_failed} | Received: {passes_received}")
-                    fig, total_actions, def_half_actions, off_half_actions = plot_heat_map(selected_name, competition_name=selected_comp)
-                    st.pyplot(fig)
-                    st.caption(
-                        f"Total actions: {passes_completed} | "
-                        f"Defensive Half Utilization: {def_half_actions:.1f}% | "
-                        f"Offensive Half Utilization: {off_half_actions:.1f}%" 
+                    player_competitions = sorted(
+                        player_stats["competition"].unique()
                     )
-                except Exception as e:
-                    st.write(e)
-                    st.info(f"Could not generate maps, not enough data found")
+
+                    player_bases = [
+                        c.split("(")[0].strip()
+                        for c in player_competitions
+                    ]
+
+                    sb_bases = get_womens_base_competitions()
+
+                    player_bases_lower = [
+                        b.lower()
+                        for b in player_bases
+                    ]
+
+                    sb_bases_lower = [
+                        b.lower()
+                        for b in sb_bases
+                    ]
+
+                    common_lower = (
+                        set(player_bases_lower)
+                        & set(sb_bases_lower)
+                    )
+
+                    common = [
+                        b
+                        for b in sb_bases
+                        if b.lower() in common_lower
+                    ]
+
+                    if not common:
+                        st.warning(
+                            "No available map data"
+                        )
+
+                    else:
+
+                        selected_comp = st.selectbox(
+                            "Competition",
+                            common,
+                            key="map_competition"
+                        )
+
+                        try:
+
+                            player_matches = get_player_matches(
+                                selected_name,
+                                selected_comp
+                            )
+
+                            if not player_matches:
+
+                                st.warning(
+                                    "No matches found for this player."
+                                )
+
+                            else:
+
+                                match_labels = [
+                                    m["label"]
+                                    for m in player_matches
+                                ]
+
+                                selected_match_label = st.selectbox(
+                                    "Match",
+                                    match_labels,
+                                    key="map_match"
+                                )
+
+                                selected_match = next(
+                                    m
+                                    for m in player_matches
+                                    if m["label"]
+                                    == selected_match_label
+                                )
+
+                                st.divider()
+
+                                st.subheader("Pass Map")
+
+                                fig, passes_completed, passes_failed, passes_received = (
+                                    plot_pass_map(
+                                        selected_match["player_name"],
+                                        selected_match["match_id"]
+                                    )
+                                )
+
+                                st.pyplot(fig)
+
+                                st.caption(
+                                    f"Completed passes: {passes_completed} | "
+                                    f"Failed: {passes_failed} | "
+                                    f"Received: {passes_received}"
+                                )
+
+                                st.divider()
+
+                                st.subheader("Heat Map")
+
+                                fig, total_actions, def_half, off_half = (
+                                    plot_heat_map(
+                                        selected_match["player_name"],
+                                        selected_match["match_id"]
+                                    )
+                                )
+
+                                st.pyplot(fig)
+
+                                st.caption(
+                                    f"Total actions: {total_actions} | "
+                                    f"Defensive Half Utilization: {def_half:.1f}% | "
+                                    f"Offensive Half Utilization: {off_half:.1f}%"
+                                )
+
+                        except Exception as e:
+
+                            st.error(str(e))
         with tab3:
             st.header("Compare Players")
             selected_names = st.multiselect(
