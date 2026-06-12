@@ -19,4 +19,4 @@ python-dotenv==1.2.2
 matplotlib==3.10.7
 seaborn==0.13.2
 mplsoccer==1.6.1
-statsbombpy==1.19.1
+statsbombpy==1.19.0
