@@ -21,8 +21,7 @@ if 'scrapers.statsbomb' in sys.modules:
 
 from scrapers.statsbomb import plot_pass_map, get_womens_base_competitions, plot_heat_map, get_player_matches
 
-BASE_URL = "http://127.0.0.1:8000"
-
+BASE_URL = "https://womens-football-data-pipeline-1.onrender.com"
 STATS_GROUPS = {
     "Defence": ["tackles", "tackles_per90", "defensive_actions", "defensive_actions_per90", "duels_won", "duels_won_per90", "dribbled_past", "dribbled_past_per90", "interceptions", "interceptions_per90", "recoveries", "recoveries_per90", "clearances", "clearances_per90", "possession_won_final_3rd", "possession_won_final_3rd_per90", "aerials_won", "aerials_won_per90", "clean_sheets", "goals_conceded_while_on_pitch", "goals_conceded_while_on_pitch_per90"],
     "Offence": ["goals", "goals_per90", "assists", "assists_per90", "big_chances_created", "big_chances_created_per90", "chances_created", "chances_created_per90", "shots", "shots_per90", "shots_on_target", "shots_on_target_per90", "dribbles", "dribbles_per90", "dribbles_success_rate", "touches_in_opposition_box", "touches_in_opposition_box_per90"],
@@ -50,7 +49,7 @@ def normalize_comp(name: str) -> str:
 
 def get_players():
     try:
-        response = requests.get(f"{BASE_URL}/players")
+        response = requests.get(f"{BASE_URL}/players", timeout=60)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -60,7 +59,7 @@ def get_players():
 
 def get_player_overview_data(player_id):
     try:
-        response = requests.get(f"{BASE_URL}/players/bio/{player_id}")
+        response = requests.get(f"{BASE_URL}/players/bio/{player_id}", timeout=60)
         response.raise_for_status()
         json_data = response.json()
         return pd.DataFrame(json_data)
@@ -70,7 +69,7 @@ def get_player_overview_data(player_id):
 
 def get_player_stats(player_id):
     try:
-        response = requests.get(f"{BASE_URL}/players/stats/{player_id}")
+        response = requests.get(f"{BASE_URL}/players/stats/{player_id}", timeout=60)
         response.raise_for_status()
         json_data = response.json()    
         return pd.DataFrame(json_data)
