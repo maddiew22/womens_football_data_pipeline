@@ -21,7 +21,7 @@ if 'scrapers.statsbomb' in sys.modules:
 
 from scrapers.statsbomb import plot_pass_map, get_womens_base_competitions, plot_heat_map, get_player_matches
 
-BASE_URL = "https://womens-football-data-pipeline-1.onrender.com"
+BASE_URL = "http://127.0.0.1:8000"
 STATS_GROUPS = {
     "Defence": ["tackles", "tackles_per90", "defensive_actions", "defensive_actions_per90", "duels_won", "duels_won_per90", "dribbled_past", "dribbled_past_per90", "interceptions", "interceptions_per90", "recoveries", "recoveries_per90", "clearances", "clearances_per90", "possession_won_final_3rd", "possession_won_final_3rd_per90", "aerials_won", "aerials_won_per90", "clean_sheets", "goals_conceded_while_on_pitch", "goals_conceded_while_on_pitch_per90"],
     "Offence": ["goals", "goals_per90", "assists", "assists_per90", "big_chances_created", "big_chances_created_per90", "chances_created", "chances_created_per90", "shots", "shots_per90", "shots_on_target", "shots_on_target_per90", "dribbles", "dribbles_per90", "dribbles_success_rate", "touches_in_opposition_box", "touches_in_opposition_box_per90"],
@@ -77,6 +77,45 @@ def get_player_stats(player_id):
         st.error(f"Failed to load player stats: {e}")
         return None
 
+def get_leaderboards(stat, competition=None):
+    try:
+        params = {}
+        if competition:
+            if isinstance(competition, str):
+                competition = [competition]
+            params["competition"] = competition 
+        response = requests.get(
+            f"{BASE_URL}/leaderboards/{stat}",
+            params=params,
+            timeout=60
+        )
+        response.raise_for_status()
+        json_data = response.json()
+        return pd.DataFrame(json_data)
+
+    except Exception as e:
+        st.error(f"Failed to load leaderboards: {e}")
+        return None
+
+def get_competitions():
+    try:
+        response = requests.get(f"{BASE_URL}/competitions", timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        st.error(f"Failed to load competitions: {e}")
+        return None 
+
+def get_available_stats():
+    try:
+        response = requests.get(f"{BASE_URL}/available_stats", timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        st.error(f"Failed to load stats: {e}")
+        return None 
 
 def format_birthdate(value):
     if not value:
@@ -240,9 +279,13 @@ player_map = {p["player_name"]: p["player_id"] for p in players}
 
 with pg1:
     with st.container(border=True):
+        default_name = "Leah Williamson"
+        sorted_names = sorted(player_map.keys())
+        default_index = sorted_names.index(default_name) if default_name in sorted_names else 0
         selected_name = st.selectbox(
             "Select Player",
-            sorted(player_map.keys())
+            sorted_names,
+            default_index
         )
 
         selected_id = player_map[selected_name]
@@ -669,6 +712,72 @@ with pg1:
         #     st.subheader("Trends")
 
 with pg2:
-    st.header("Leaderboards")
+    st.header("Current Season Leaderboards")
 
-    
+    stats = get_available_stats()
+    all_stats = stats["column_name"].tolist()
+    all_stats = [s for s in all_stats if "percentile" not in s.lower()]
+    default_stat = "assists"
+    default_index = all_stats.index(default_stat) if default_stat in all_stats else 0
+
+    selected_stat = st.selectbox(
+        "Select Stat",
+        options=all_stats,
+        index=default_index
+    )
+
+    selected_position = st.selectbox(
+        "Filter Position",
+        options=["All", "Center Back", "Full Back", "Central Midfielder", "Winger", "Striker"],
+    )
+    position_mapping = {
+        "Center Back": ["Center Back"],
+        "Full Back": ["Left Back", "Right Back", "Full Back"],
+        "Central Midfielder": [
+            "Central Midfielder",
+            "Defensive Midfielder",
+            "Attacking Midfielder",
+        ],
+        "Winger": ["Left Winger", "Right Winger", "Winger"],
+        "Striker": ["Striker", "Centre Forward"],
+    }
+
+    comps_to_exclude = ["WSL 2", "NWSL Challenge Cup", "A-League Women", "NWSL Fall Series Northeast", "NWSL Fall Series West", "NWSL Fall Series South", "Concacaf W Qualifiers", "W-League", "Summer Olympics Women"]
+    comps = get_competitions()
+    all_comps = comps["competition"].tolist()
+    all_comps = [c for c in all_comps if c not in comps_to_exclude]
+    selected_comps = st.multiselect(
+        "Filter Competitions",
+        options=all_comps
+    )
+
+    df = get_leaderboards(
+        stat=selected_stat,
+        competition=selected_comps if selected_comps else None
+    )
+
+    if selected_position != "All":
+        df = df[
+            df["primary_position"].isin(
+                position_mapping[selected_position]
+            )
+        ]
+
+    df["competitions"] = df["competitions"].apply(
+        lambda s: ",  ".join(
+            c for c in re.findall(r'"([^"]+)"|\'([^\']+)\'', s)
+            for c in c if c and c not in comps_to_exclude
+        )
+    )
+    st.dataframe(
+        df[["player_name", "value", "primary_position", "competitions"]]
+        .rename(columns={
+            "player_name": "Player",
+            "value": f"{selected_stat}",
+            "primary_position": "Position",
+            "competitions": "Competitions",
+        })
+        .head(20),
+        use_container_width=True,
+        hide_index=True,
+    )
