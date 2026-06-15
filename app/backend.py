@@ -197,3 +197,85 @@ def get_leaderboards(
     """
 
     return run_query(query, params)
+
+@app.get("/statsbomb/competitions/{player}")
+def get_statsbomb_competitions(player: str):
+    query = """
+    SELECT DISTINCT competition_name 
+    FROM workspace.fotmob.processed_player_matches
+    WHERE LOWER(COALESCE(nickname, player_name)) = LOWER(?)
+    """
+    return run_query(query, params=[player])
+
+
+@app.get("/statsbomb_matches/{competition}/{player}")
+def get_statsbomb_player_matches(player: str, competition: str):
+    """Get all matches for a player by nickname or player name."""
+    query = """
+    SELECT DISTINCT 
+        match_id, 
+        match_date, 
+        competition_name, 
+        season_name,
+        team_name,
+        COALESCE(nickname, player_name) as display_name
+    FROM workspace.fotmob.processed_player_matches 
+    WHERE LOWER(competition_name) = LOWER(?)
+      AND LOWER(COALESCE(nickname, player_name)) = LOWER(?)
+    ORDER BY match_date DESC
+    """
+    return run_query(query, params=[competition, player])
+
+
+@app.get("/statsbomb_passes/{match_id}/{player}")
+def get_statsbomb_passes(match_id: int, player: str):
+    """Get pass data for a player in a specific match (passes made BY or TO the player)."""
+    query = """
+    SELECT DISTINCT
+        pl.player,
+        pl.pass_recipient,
+        pl.start_x,
+        pl.start_y,
+        pl.end_x,
+        pl.end_y,
+        pl.pass_outcome,
+        pl.pass_type,
+        pl.team,
+        pl.minute,
+        pl.second
+    FROM workspace.fotmob.processed_pass_locations pl
+    LEFT JOIN workspace.fotmob.processed_player_matches pm_passer
+        ON pl.match_id = pm_passer.match_id 
+        AND LOWER(pl.player) = LOWER(pm_passer.player_name)
+    LEFT JOIN workspace.fotmob.processed_player_matches pm_recipient
+        ON pl.match_id = pm_recipient.match_id 
+        AND LOWER(pl.pass_recipient) = LOWER(pm_recipient.player_name)
+    WHERE pl.match_id = ?
+      AND (
+        LOWER(COALESCE(pm_passer.nickname, pm_passer.player_name)) = LOWER(?)
+        OR LOWER(COALESCE(pm_recipient.nickname, pm_recipient.player_name)) = LOWER(?)
+      )
+    """
+    return run_query(query, params=[match_id, player, player])
+
+
+@app.get("/statsbomb_events/{match_id}/{player}")
+def get_statsbomb_events(match_id: int, player: str):
+    """Get event location data for a player in a specific match."""
+    query = """
+    SELECT
+        el.player,
+        el.team,
+        el.type,
+        el.minute,
+        el.second,
+        el.x,
+        el.y
+    FROM workspace.fotmob.processed_event_locations el
+    INNER JOIN workspace.fotmob.processed_player_matches pm
+        ON el.match_id = pm.match_id 
+        AND LOWER(el.player) = LOWER(pm.player_name)
+    WHERE el.match_id = ?
+      AND LOWER(COALESCE(pm.nickname, pm.player_name)) = LOWER(?)
+    """
+    return run_query(query, params=[match_id, player])
