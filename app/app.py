@@ -549,8 +549,7 @@ with pg1:
 
                                     st.caption(
                                         f"Completed passes: {passes_completed} | "
-                                        f"Failed: {passes_failed} | "
-                                        f"Received: {passes_received}"
+                                        f"Failed: {passes_failed}"
                                     )
 
                                     st.divider()
