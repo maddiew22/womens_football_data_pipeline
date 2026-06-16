@@ -499,7 +499,7 @@ with pg2:
         "Summer Olympics Women",
     ]
 
-    comps = get_competitions()
+    comps = get_competitions(season)
     all_comps = [
         c for c in comps["competition"].tolist()
         if c not in comps_to_exclude
@@ -514,7 +514,6 @@ with pg2:
         season=selected_season,
         stat=selected_stat,
     )
-
 
     if selected_comps:
         df = df[df["competition"].isin(selected_comps)]

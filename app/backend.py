@@ -123,12 +123,13 @@ def get_player_stats(player_id: int):
     """
     return run_query(query)
 
-@app.get("/competitions")
-def get_competitions():
+@app.get("/{season}/competitions")
+def get_competitions(season):
     query = f"""
         SELECT DISTINCT
             competition
         FROM workspace.fotmob.player_stats_processed
+        WHERE season = {season}
     """
     return run_query(query)
 

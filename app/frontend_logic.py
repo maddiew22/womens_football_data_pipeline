@@ -85,10 +85,10 @@ def get_leaderboards(season, stat):
         st.error(f"Failed to load leaderboards: {e}")
         return None
 
-def get_competitions():
+def get_competitions(season):
     """Get competitions from API"""
     try:
-        response = requests.get(f"{BASE_URL}/competitions", timeout=60)
+        response = requests.get(f"{BASE_URL}/{season}/competitions", timeout=60)
         response.raise_for_status()
         json_data = response.json()    
         return pd.DataFrame(json_data)
