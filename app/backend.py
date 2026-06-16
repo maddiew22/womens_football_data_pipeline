@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import os
 from dotenv import load_dotenv
+import unicodedata
+import re
 
 load_dotenv()
 
@@ -198,84 +200,175 @@ def get_leaderboards(
 
     return run_query(query, params)
 
+def strip_accents(text: str) -> str:
+    if not text:
+        return ""
+
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in text if not unicodedata.combining(c))
+
+def normalize_name(name: str) -> set[str]:
+    name = strip_accents(name)
+    return {
+        token
+        for token in re.findall(r"[a-z]+", name.lower())
+    }
+
+def names_match(search_name: str, candidate_name: str) -> bool:
+    search_tokens = normalize_name(search_name)
+    candidate_tokens = normalize_name(candidate_name)
+
+    # Exact match
+    if search_tokens == candidate_tokens:
+        return True
+
+    # At least 2 shared tokens
+    return len(search_tokens & candidate_tokens) >= 2
+
+def resolve_player(player: str) -> str:
+    query = """
+    SELECT DISTINCT
+        player_name,
+        nickname
+    FROM workspace.fotmob.processed_player_matches
+    """
+
+    players = run_query(query)
+
+    # Exact match first
+    for row in players:
+        player_name = row["player_name"]
+        nickname = row.get("nickname")
+
+        if player_name and player.lower() == player_name.lower():
+            return player_name
+
+        if nickname and player.lower() == nickname.lower():
+            return player_name
+
+    matches = []
+
+    for row in players:
+        player_name = row["player_name"]
+        nickname = row.get("nickname")
+
+        if player_name and names_match(player, player_name):
+            matches.append(player_name)
+            continue
+
+        if nickname and names_match(player, nickname):
+            matches.append(player_name)
+
+    matches = list(dict.fromkeys(matches))
+
+    if len(matches) == 1:
+        return matches[0]
+
+    if len(matches) > 1:
+        search_tokens = normalize_name(player)
+
+        return max(
+            matches,
+            key=lambda name: len(
+                search_tokens & normalize_name(name)
+            )
+        )
+
+    return player
+
 @app.get("/statsbomb/competitions/{player}")
 def get_statsbomb_competitions(player: str):
+    resolved_player = resolve_player(player)
+    print(f"INPUT={player}")
+    print(f"RESOLVED={resolved_player}")
     query = """
-    SELECT DISTINCT competition_name 
+    SELECT DISTINCT competition_name
     FROM workspace.fotmob.processed_player_matches
-    WHERE LOWER(COALESCE(nickname, player_name)) = LOWER(?)
+    WHERE LOWER(player_name) = LOWER(?)
+    ORDER BY competition_name
     """
-    return run_query(query, params=[player])
 
+    return run_query(query, params=[resolved_player])
 
 @app.get("/statsbomb_matches/{competition}/{player}")
 def get_statsbomb_player_matches(player: str, competition: str):
-    """Get all matches for a player by nickname or player name."""
+    resolved_player = resolve_player(player)
+    
     query = """
-    SELECT DISTINCT 
-        match_id, 
-        match_date, 
-        competition_name, 
+    SELECT DISTINCT
+        match_id,
+        match_date,
+        competition_name,
         season_name,
         team_name,
-        COALESCE(nickname, player_name) as display_name
-    FROM workspace.fotmob.processed_player_matches 
+        COALESCE(nickname, player_name) AS display_name
+    FROM workspace.fotmob.processed_player_matches
     WHERE LOWER(competition_name) = LOWER(?)
-      AND LOWER(COALESCE(nickname, player_name)) = LOWER(?)
+      AND LOWER(player_name) = LOWER(?)
     ORDER BY match_date DESC
     """
-    return run_query(query, params=[competition, player])
 
+    return run_query(
+        query,
+        params=[competition, resolved_player]
+    )
 
 @app.get("/statsbomb_passes/{match_id}/{player}")
 def get_statsbomb_passes(match_id: int, player: str):
-    """Get pass data for a player in a specific match (passes made BY or TO the player)."""
+    resolved_player = resolve_player(player)
+
     query = """
     SELECT DISTINCT
-        pl.player,
-        pl.pass_recipient,
-        pl.start_x,
-        pl.start_y,
-        pl.end_x,
-        pl.end_y,
-        pl.pass_outcome,
-        pl.pass_type,
-        pl.team,
-        pl.minute,
-        pl.second
-    FROM workspace.fotmob.processed_pass_locations pl
-    LEFT JOIN workspace.fotmob.processed_player_matches pm_passer
-        ON pl.match_id = pm_passer.match_id 
-        AND LOWER(pl.player) = LOWER(pm_passer.player_name)
-    LEFT JOIN workspace.fotmob.processed_player_matches pm_recipient
-        ON pl.match_id = pm_recipient.match_id 
-        AND LOWER(pl.pass_recipient) = LOWER(pm_recipient.player_name)
-    WHERE pl.match_id = ?
+        player,
+        pass_recipient,
+        start_x,
+        start_y,
+        end_x,
+        end_y,
+        pass_outcome,
+        pass_type,
+        team,
+        minute,
+        second
+    FROM workspace.fotmob.processed_pass_locations
+    WHERE match_id = ?
       AND (
-        LOWER(COALESCE(pm_passer.nickname, pm_passer.player_name)) = LOWER(?)
-        OR LOWER(COALESCE(pm_recipient.nickname, pm_recipient.player_name)) = LOWER(?)
+          LOWER(player) = LOWER(?)
+          OR LOWER(pass_recipient) = LOWER(?)
       )
     """
-    return run_query(query, params=[match_id, player, player])
 
+    return run_query(
+        query,
+        params=[
+            match_id,
+            resolved_player,
+            resolved_player
+        ]
+    )
 
 @app.get("/statsbomb_events/{match_id}/{player}")
 def get_statsbomb_events(match_id: int, player: str):
-    """Get event location data for a player in a specific match."""
+    resolved_player = resolve_player(player)
+
     query = """
     SELECT
-        el.player,
-        el.team,
-        el.type,
-        el.minute,
-        el.second,
-        el.x,
-        el.y
-    FROM workspace.fotmob.processed_event_locations el
-    INNER JOIN workspace.fotmob.processed_player_matches pm
-        ON el.match_id = pm.match_id 
-        AND LOWER(el.player) = LOWER(pm.player_name)
-    WHERE el.match_id = ?
-      AND LOWER(COALESCE(pm.nickname, pm.player_name)) = LOWER(?)
+        player,
+        team,
+        type,
+        minute,
+        second,
+        x,
+        y
+    FROM workspace.fotmob.processed_event_locations
+    WHERE match_id = ?
+      AND LOWER(player) = LOWER(?)
     """
-    return run_query(query, params=[match_id, player])
+
+    return run_query(
+        query,
+        params=[
+            match_id,
+            resolved_player
+        ]
+    )
