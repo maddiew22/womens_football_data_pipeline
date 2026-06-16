@@ -19,7 +19,7 @@ if 'scrapers' in sys.modules:
 if 'scrapers.statsbomb' in sys.modules:
     del sys.modules['scrapers.statsbomb']
 
-from scrapers.statsbomb import plot_pass_map, get_womens_base_competitions, plot_heat_map, get_player_matches
+from scrapers.statsbomb import plot_pass_map, plot_heat_map
 
 BASE_URL = "http://127.0.0.1:8000"
 STATS_GROUPS = {
@@ -115,6 +115,46 @@ def get_available_stats():
         return pd.DataFrame(json_data)
     except Exception as e:
         st.error(f"Failed to load stats: {e}")
+        return None 
+    
+def get_statsbomb_competitions(player):
+    try:
+        response = requests.get(f"{BASE_URL}/statsbomb/competitions/{player}", timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        st.error(f"Failed to load player competitions: {e}")
+        return None 
+
+def get_statsbomb_matches(player, competition):
+    try:
+        response = requests.get(f"{BASE_URL}/statsbomb_matches/{competition}/{player}", timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        st.error(f"Failed to load player matches: {e}")
+        return None 
+    
+def get_statsbomb_passes(player, match):
+    try:
+        response = requests.get(f"{BASE_URL}/statsbomb_passes/{match}/{player}", timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        st.error(f"Failed to load match passes: {e}")
+        return None 
+    
+def get_statsbomb_touches(player, match):
+    try:
+        response = requests.get(f"{BASE_URL}/statsbomb_events/{match}/{player}", timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        st.error(f"Failed to load match touches: {e}")
         return None 
 
 def format_birthdate(value):
@@ -461,55 +501,22 @@ with pg1:
 
                     if player_stats is not None and not player_stats.empty:
 
-                        player_competitions = sorted(
-                            player_stats["competition"].unique()
-                        )
-
-                        player_bases = [
-                            c.split("(")[0].strip()
-                            for c in player_competitions
-                        ]
-
-                        sb_bases = get_womens_base_competitions()
-
-                        player_norm_map = {
-                            normalize_comp(b): b
-                            for b in player_bases
-                        }
-
-                        sb_norm_map = {
-                            normalize_comp(b): b
-                            for b in sb_bases
-                        }
-
-                        common_keys = set(player_norm_map.keys()) & set(sb_norm_map.keys())
-
-                        common = [
-                            sb_norm_map[k]
-                            for k in sorted(common_keys)
-                        ]
-
-                        if not common:
-                            st.warning(
-                                "No available map data"
-                            )
-
-                        else:
-
+    
+                            comp_options = get_statsbomb_competitions(selected_name)
                             selected_comp = st.selectbox(
                                 "Competition",
-                                common,
-                                key="map_competition"
+                                comp_options,
+                                #key="map_competition"
                             )
 
                             try:
 
-                                player_matches = get_player_matches(
+                                player_matches = get_statsbomb_matches(
                                     selected_name,
                                     selected_comp
                                 )
 
-                                if not player_matches:
+                                if player_matches.empty:
 
                                     st.warning(
                                         "No matches found for this player."
@@ -517,41 +524,32 @@ with pg1:
 
                                 else:
 
-                                    match_labels = [
-                                        m["label"]
-                                        for m in player_matches
-                                    ]
-
-                                    selected_match_label = st.selectbox(
+                                    match_labels = player_matches["match_date"].tolist()
+            
+                                    selected_idx = st.selectbox(
                                         "Match",
-                                        match_labels,
-                                        key="map_match"
+                                        options=player_matches.index,
+                                        format_func=lambda i: (
+                                            f"{player_matches.loc[i, 'match_date']} - "
+                                            f"{player_matches.loc[i, 'team_name']}"
+                                        )
                                     )
 
-                                    selected_match = next(
-                                        m
-                                        for m in player_matches
-                                        if m["label"]
-                                        == selected_match_label
-                                    )
-
+                                    selected_match = player_matches.loc[selected_idx]
                                     st.divider()
 
                                     st.subheader("Pass Map")
-
+                                    passes_df = get_statsbomb_passes(selected_match["display_name"], selected_match["match_id"])
+                                    touches_df = get_statsbomb_touches(selected_match["display_name"], selected_match["match_id"])
                                     fig, passes_completed, passes_failed, passes_received = (
-                                        plot_pass_map(
-                                            selected_match["player_name"],
-                                            selected_match["match_id"]
-                                        )
+                                        plot_pass_map(selected_match["display_name"], passes_df)
                                     )
 
                                     st.pyplot(fig)
 
                                     st.caption(
                                         f"Completed passes: {passes_completed} | "
-                                        f"Failed: {passes_failed} | "
-                                        f"Received: {passes_received}"
+                                        f"Failed: {passes_failed}"
                                     )
 
                                     st.divider()
@@ -559,10 +557,7 @@ with pg1:
                                     st.subheader("Heat Map")
 
                                     fig, total_actions, def_half, off_half = (
-                                        plot_heat_map(
-                                            selected_match["player_name"],
-                                            selected_match["match_id"]
-                                        )
+                                        plot_heat_map(selected_match["display_name"], touches_df)
                                     )
 
                                     st.pyplot(fig)
@@ -574,10 +569,11 @@ with pg1:
                                     )
 
                             except Exception as e:
-
+                                print(e)
                                 st.info("Not enough data")
 
-                except Exception:
+                except Exception as e:
+                    print(e)
                     st.info("Not enough data for player")
         with tab3:
             st.header("Compare Players")

@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import os
 from dotenv import load_dotenv
+import unicodedata
+import re
 
 load_dotenv()
 
@@ -197,3 +199,176 @@ def get_leaderboards(
     """
 
     return run_query(query, params)
+
+def strip_accents(text: str) -> str:
+    if not text:
+        return ""
+
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in text if not unicodedata.combining(c))
+
+def normalize_name(name: str) -> set[str]:
+    name = strip_accents(name)
+    return {
+        token
+        for token in re.findall(r"[a-z]+", name.lower())
+    }
+
+def names_match(search_name: str, candidate_name: str) -> bool:
+    search_tokens = normalize_name(search_name)
+    candidate_tokens = normalize_name(candidate_name)
+
+    # Exact match
+    if search_tokens == candidate_tokens:
+        return True
+
+    # At least 2 shared tokens
+    return len(search_tokens & candidate_tokens) >= 2
+
+def resolve_player(player: str) -> str:
+    query = """
+    SELECT DISTINCT
+        player_name,
+        nickname
+    FROM workspace.fotmob.processed_player_matches
+    """
+
+    players = run_query(query)
+
+    # Exact match first
+    for row in players:
+        player_name = row["player_name"]
+        nickname = row.get("nickname")
+
+        if player_name and player.lower() == player_name.lower():
+            return player_name
+
+        if nickname and player.lower() == nickname.lower():
+            return player_name
+
+    matches = []
+
+    for row in players:
+        player_name = row["player_name"]
+        nickname = row.get("nickname")
+
+        if player_name and names_match(player, player_name):
+            matches.append(player_name)
+            continue
+
+        if nickname and names_match(player, nickname):
+            matches.append(player_name)
+
+    matches = list(dict.fromkeys(matches))
+
+    if len(matches) == 1:
+        return matches[0]
+
+    if len(matches) > 1:
+        search_tokens = normalize_name(player)
+
+        return max(
+            matches,
+            key=lambda name: len(
+                search_tokens & normalize_name(name)
+            )
+        )
+
+    return player
+
+@app.get("/statsbomb/competitions/{player}")
+def get_statsbomb_competitions(player: str):
+    resolved_player = resolve_player(player)
+    print(f"INPUT={player}")
+    print(f"RESOLVED={resolved_player}")
+    query = """
+    SELECT DISTINCT competition_name
+    FROM workspace.fotmob.processed_player_matches
+    WHERE LOWER(player_name) = LOWER(?)
+    ORDER BY competition_name
+    """
+
+    return run_query(query, params=[resolved_player])
+
+@app.get("/statsbomb_matches/{competition}/{player}")
+def get_statsbomb_player_matches(player: str, competition: str):
+    resolved_player = resolve_player(player)
+    
+    query = """
+    SELECT DISTINCT
+        match_id,
+        match_date,
+        competition_name,
+        season_name,
+        team_name,
+        COALESCE(nickname, player_name) AS display_name
+    FROM workspace.fotmob.processed_player_matches
+    WHERE LOWER(competition_name) = LOWER(?)
+      AND LOWER(player_name) = LOWER(?)
+    ORDER BY match_date DESC
+    """
+
+    return run_query(
+        query,
+        params=[competition, resolved_player]
+    )
+
+@app.get("/statsbomb_passes/{match_id}/{player}")
+def get_statsbomb_passes(match_id: int, player: str):
+    resolved_player = resolve_player(player)
+
+    query = """
+    SELECT DISTINCT
+        player,
+        pass_recipient,
+        start_x,
+        start_y,
+        end_x,
+        end_y,
+        pass_outcome,
+        pass_type,
+        team,
+        minute,
+        second
+    FROM workspace.fotmob.processed_pass_locations
+    WHERE match_id = ?
+      AND (
+          LOWER(player) = LOWER(?)
+          OR LOWER(pass_recipient) = LOWER(?)
+      )
+    """
+
+    return run_query(
+        query,
+        params=[
+            match_id,
+            resolved_player,
+            resolved_player
+        ]
+    )
+
+@app.get("/statsbomb_events/{match_id}/{player}")
+def get_statsbomb_events(match_id: int, player: str):
+    resolved_player = resolve_player(player)
+
+    query = """
+    SELECT
+        player,
+        team,
+        type,
+        minute,
+        second,
+        x,
+        y
+    FROM workspace.fotmob.processed_event_locations
+    WHERE match_id = ?
+      AND LOWER(player) = LOWER(?)
+    """
+
+    return run_query(
+        query,
+        params=[
+            match_id,
+            resolved_player
+        ]
+    )
