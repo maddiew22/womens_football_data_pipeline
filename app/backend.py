@@ -151,45 +151,29 @@ def get_agg(stat):
     return "SUM"
 
 @app.get("/leaderboards/{stat}")
-def get_leaderboards(
-    stat: str,
-    competition: Optional[List[str]] = Query(None)
-):
-    
+def get_leaderboards(stat: str):
+    comps_to_exclude = [
+        "WSL 2", "NWSL Challenge Cup", "A-League Women",
+        "NWSL Fall Series Northeast", "NWSL Fall Series West",
+        "NWSL Fall Series South", "Concacaf W Qualifiers",
+        "W-League", "Summer Olympics Women"
+    ]
+
     agg_expr = f"{get_agg(stat)}(stats.{stat})"
+
+    exclude_list = ", ".join([f"'{c}'" for c in comps_to_exclude])
 
     query = f"""
         SELECT
             bio.player_name,
             {agg_expr} AS value,
-            bio.primary_position, 
+            bio.primary_position,
             COLLECT_SET(stats.competition) AS competitions
         FROM workspace.fotmob.player_stats_processed AS stats
         JOIN workspace.fotmob.player_overview_processed AS bio
             ON stats.player_id = bio.player_id
         WHERE stats.season = YEAR(CURRENT_DATE)
-    """
-
-    params = None
-
-    if competition:
-        cleaned = [
-            c.strip().lower().replace("’", "'")
-            for c in competition
-            if c
-        ]
-
-        if cleaned:
-            placeholders = ", ".join(["?"] * len(cleaned))
-
-            query += f"""
-                AND LOWER(TRIM(REPLACE(stats.competition, '’', '''')))
-                IN ({placeholders})
-            """
-
-            params = cleaned
-
-    query += """
+        AND stats.competition NOT IN ({exclude_list})
         GROUP BY
             bio.player_name,
             stats.player_id,
@@ -198,7 +182,7 @@ def get_leaderboards(
         LIMIT 1000
     """
 
-    return run_query(query, params)
+    return run_query(query)
 
 def strip_accents(text: str) -> str:
     if not text:

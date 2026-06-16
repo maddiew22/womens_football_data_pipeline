@@ -8,6 +8,7 @@ import pandas as pd
 import sys
 from pathlib import Path
 import plotly.express as px
+import ast
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -46,6 +47,14 @@ def normalize_comp(name: str) -> str:
     name = name.lower().strip()
     name = re.sub(r"\s*\(\d{4}/\d{4}\)\s*", "", name)  # remove seasons
     return COMPETITION_ALIASES.get(name, name)
+
+def parse_competitions_for_leaderboard(x):
+    if isinstance(x, list):
+        return x
+    try:
+        return ast.literal_eval(x)
+    except Exception:
+        return []
 
 def get_players():
     try:
@@ -393,14 +402,16 @@ with pg1:
                     st.subheader("Player Stats")
 
                     st.dataframe(
-                        player_stats.drop(
-                            columns=[
-                                col for col in player_stats.columns
-                                if col.endswith("percentile")
-                                or col.endswith("percentile_per90")
-                            ] + ["player_id"],
-                            errors="ignore"
-                        ),hide_index=True
+                        player_stats
+                            .replace({None: np.nan, "None": np.nan})
+                            .drop(
+                                columns=[
+                                    col for col in player_stats.columns
+                                    if col.endswith("percentile")
+                                    or col.endswith("percentile_per90")
+                                ] + ["player_id"],
+                                errors="ignore"
+                            ),hide_index=True
                     )
                     st.subheader("Seasonal Stats")
                     season = st.selectbox(
@@ -738,19 +749,32 @@ with pg2:
         "Striker": ["Striker", "Centre Forward"],
     }
 
-    comps_to_exclude = ["WSL 2", "NWSL Challenge Cup", "A-League Women", "NWSL Fall Series Northeast", "NWSL Fall Series West", "NWSL Fall Series South", "Concacaf W Qualifiers", "W-League", "Summer Olympics Women"]
+    comps_to_exclude = [
+    "WSL 2", "NWSL Challenge Cup", "A-League Women",
+    "NWSL Fall Series Northeast", "NWSL Fall Series West",
+    "NWSL Fall Series South", "Concacaf W Qualifiers",
+    "W-League", "Summer Olympics Women"
+    ]
+
     comps = get_competitions()
     all_comps = comps["competition"].tolist()
     all_comps = [c for c in all_comps if c not in comps_to_exclude]
+
     selected_comps = st.multiselect(
         "Filter Competitions",
         options=all_comps
     )
 
-    df = get_leaderboards(
-        stat=selected_stat,
-        competition=selected_comps if selected_comps else None
-    )
+    df = get_leaderboards(stat=selected_stat)
+
+    df["competitions_list"] = df["competitions"].apply(parse_competitions_for_leaderboard)
+
+    if selected_comps:
+        df = df[
+            df["competitions_list"].apply(
+                lambda comps: any(c in comps for c in selected_comps)
+            )
+        ]
 
     if selected_position != "All":
         df = df[
@@ -759,17 +783,22 @@ with pg2:
             )
         ]
 
-    df["competitions"] = df["competitions"].apply(
-        lambda s: ",  ".join(
-            c for c in re.findall(r'"([^"]+)"|\'([^\']+)\'', s)
-            for c in c if c and c not in comps_to_exclude
+    df["competitions"] = df["competitions_list"].apply(
+        lambda comps: ", ".join(
+            c for c in comps if c not in comps_to_exclude
         )
     )
+
     st.dataframe(
-        df[["player_name", "value", "primary_position", "competitions"]]
+        df[[
+            "player_name",
+            "value",
+            "primary_position",
+            "competitions"
+        ]]
         .rename(columns={
             "player_name": "Player",
-            "value": f"{selected_stat}",
+            "value": selected_stat,
             "primary_position": "Position",
             "competitions": "Competitions",
         })
