@@ -69,17 +69,11 @@ def get_player_stats(player_id):
         st.error(f"Failed to load player stats: {e}")
         return None
 
-def get_leaderboards(stat, competition=None):
+def get_leaderboards(season, stat):
     """Get leaderboard data for a given stat from API"""
     try:
-        params = {}
-        if competition:
-            if isinstance(competition, str):
-                competition = [competition]
-            params["competition"] = competition 
         response = requests.get(
-            f"{BASE_URL}/leaderboards/{stat}",
-            params=params,
+            f"{BASE_URL}/leaderboards/{season}/{stat}",
             timeout=60
         )
         response.raise_for_status()
@@ -87,6 +81,7 @@ def get_leaderboards(stat, competition=None):
         return pd.DataFrame(json_data)
 
     except Exception as e:
+        print(e)
         st.error(f"Failed to load leaderboards: {e}")
         return None
 
@@ -100,6 +95,17 @@ def get_competitions():
     except Exception as e:
         st.error(f"Failed to load competitions: {e}")
         return None 
+    
+def get_seasons():
+    """Get player seasons from API"""
+    try:
+        response = requests.get(f"{BASE_URL}/seasons", timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        st.error(f"Failed to load seasons: {e}")
+        return None   
 
 def get_available_stats():
     """Get season stat names that are available for players from API"""

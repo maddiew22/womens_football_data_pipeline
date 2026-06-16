@@ -142,6 +142,14 @@ def get_available_stats():
     """
     return run_query(query)
 
+@app.get("/seasons")
+def get_seasons():
+    query = f"""
+        SELECT DISTINCT season
+        FROM workspace.fotmob.player_stats_processed
+    """
+    return run_query(query)
+
 
 AVG_KEYWORDS = ["per90", "accuracy", "rate"]
 def get_agg(stat):
@@ -150,8 +158,8 @@ def get_agg(stat):
         return "AVG"
     return "SUM"
 
-@app.get("/leaderboards/{stat}")
-def get_leaderboards(stat: str):
+@app.get("/leaderboards/{season}/{stat}")
+def get_leaderboards(season, stat):
     comps_to_exclude = [
         "WSL 2", "NWSL Challenge Cup", "A-League Women",
         "NWSL Fall Series Northeast", "NWSL Fall Series West",
@@ -166,20 +174,16 @@ def get_leaderboards(stat: str):
     query = f"""
         SELECT
             bio.player_name,
-            {agg_expr} AS value,
+            stats.{stat},
             bio.primary_position,
-            COLLECT_SET(stats.competition) AS competitions
+            stats.competition
         FROM workspace.fotmob.player_stats_processed AS stats
         JOIN workspace.fotmob.player_overview_processed AS bio
             ON stats.player_id = bio.player_id
-        WHERE stats.season = YEAR(CURRENT_DATE)
+        WHERE stats.season = {season}
         AND stats.competition NOT IN ({exclude_list})
-        GROUP BY
-            bio.player_name,
-            stats.player_id,
-            bio.primary_position
-        ORDER BY value DESC
-        LIMIT 1000
+        ORDER BY {stat} DESC
+        LIMIT 5000
     """
 
     return run_query(query)

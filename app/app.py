@@ -21,7 +21,7 @@ if 'scrapers.statsbomb' in sys.modules:
     del sys.modules['scrapers.statsbomb']
 
 from scrapers.statsbomb import plot_pass_map, plot_heat_map
-from frontend_logic import normalize_comp, parse_competitions_for_leaderboard, get_players, get_player_overview_data, get_player_stats, get_leaderboards, get_competitions, get_available_stats, get_statsbomb_competitions, get_statsbomb_matches, get_statsbomb_passes, get_statsbomb_touches, format_birthdate, parse_secondary_positions, clean_display, build_radar, plot_radar, plot_comparison_radar
+from frontend_logic import normalize_comp, parse_competitions_for_leaderboard, get_players, get_player_overview_data, get_player_stats, get_leaderboards, get_competitions, get_available_stats, get_statsbomb_competitions, get_statsbomb_matches, get_statsbomb_passes, get_statsbomb_touches, format_birthdate, parse_secondary_positions, clean_display, build_radar, plot_radar, plot_comparison_radar, get_seasons
 
 STATS_GROUPS = {
     "Defence": ["tackles", "tackles_per90", "defensive_actions", "defensive_actions_per90", "duels_won", "duels_won_per90", "dribbled_past", "dribbled_past_per90", "interceptions", "interceptions_per90", "recoveries", "recoveries_per90", "clearances", "clearances_per90", "possession_won_final_3rd", "possession_won_final_3rd_per90", "aerials_won", "aerials_won_per90", "clean_sheets", "goals_conceded_while_on_pitch", "goals_conceded_while_on_pitch_per90"],
@@ -440,11 +440,12 @@ with pg1:
         #     st.subheader("Trends")
 
 with pg2:
-    st.header("Current Season Leaderboards")
+    st.header("Leaderboards")
 
     stats = get_available_stats()
     all_stats = stats["column_name"].tolist()
     all_stats = [s for s in all_stats if "percentile" not in s.lower()]
+
     default_stat = "assists"
     default_index = all_stats.index(default_stat) if default_stat in all_stats else 0
 
@@ -456,8 +457,16 @@ with pg2:
 
     selected_position = st.selectbox(
         "Filter Position",
-        options=["All", "Center Back", "Full Back", "Central Midfielder", "Winger", "Striker"],
+        options=[
+            "All",
+            "Center Back",
+            "Full Back",
+            "Central Midfielder",
+            "Winger",
+            "Striker",
+        ],
     )
+
     position_mapping = {
         "Center Back": ["Center Back"],
         "Full Back": ["Left Back", "Right Back", "Full Back"],
@@ -470,57 +479,66 @@ with pg2:
         "Striker": ["Striker", "Centre Forward"],
     }
 
+    season_options = get_seasons()
+    season_options = sorted(season_options["season"], reverse=True)
+
+    selected_season = st.selectbox(
+        "Season",
+        options=season_options,
+    )
+
     comps_to_exclude = [
-    "WSL 2", "NWSL Challenge Cup", "A-League Women",
-    "NWSL Fall Series Northeast", "NWSL Fall Series West",
-    "NWSL Fall Series South", "Concacaf W Qualifiers",
-    "W-League", "Summer Olympics Women"
+        "WSL 2",
+        "NWSL Challenge Cup",
+        "A-League Women",
+        "NWSL Fall Series Northeast",
+        "NWSL Fall Series West",
+        "NWSL Fall Series South",
+        "Concacaf W Qualifiers",
+        "W-League",
+        "Summer Olympics Women",
     ]
 
     comps = get_competitions()
-    all_comps = comps["competition"].tolist()
-    all_comps = [c for c in all_comps if c not in comps_to_exclude]
+    all_comps = [
+        c for c in comps["competition"].tolist()
+        if c not in comps_to_exclude
+    ]
 
     selected_comps = st.multiselect(
         "Filter Competitions",
         options=all_comps
     )
 
-    df = get_leaderboards(stat=selected_stat)
-    df["competitions_list"] = df["competitions"].apply(parse_competitions_for_leaderboard)
+    df = get_leaderboards(
+        season=selected_season,
+        stat=selected_stat,
+    )
+
+
     if selected_comps:
-        df = df[
-            df["competitions_list"].apply(
-                lambda comps: any(c in comps for c in selected_comps)
-            )
-        ]
+        df = df[df["competition"].isin(selected_comps)]
 
     if selected_position != "All":
-        df = df[
-            df["primary_position"].isin(
-                position_mapping[selected_position]
-            )
-        ]
+        df = df[df["primary_position"].isin(position_mapping[selected_position])]
 
-    df["competitions"] = df["competitions_list"].apply(
-        lambda comps: ", ".join(
-            c for c in comps if c not in comps_to_exclude
+    df[f"{selected_stat}"] = pd.to_numeric(df[f"{selected_stat}"], errors="coerce")
+    leaderboard = (
+        df.groupby(
+            ["player_name", "primary_position"],
+            as_index=False,
+        )
+        .agg(
+            value=(selected_stat, "sum"),
+            competitions=("competition", lambda x: ", ".join(sorted(set(x))))
         )
     )
 
     st.dataframe(
-        df[[
-            "player_name",
-            "value",
-            "primary_position",
-            "competitions"
-        ]]
-        .rename(columns={
-            "player_name": "Player",
-            "value": selected_stat,
-            "primary_position": "Position",
-            "competitions": "Competitions",
-        })
+        leaderboard[
+            ["player_name", "value", "primary_position", "competitions"]
+        ]
+        .sort_values("value", ascending=False)
         .head(20),
         use_container_width=True,
         hide_index=True,
