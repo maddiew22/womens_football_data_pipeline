@@ -177,19 +177,19 @@ def plot_pass_map(player: str, passes_data):
         )
     
     # Plot received passes
-    if not received_completed.empty:
-        pitch.arrows(
-            received_completed["x"],
-            received_completed["y"],
-            received_completed["end_x"],
-            received_completed["end_y"],
-            color="#2200FF",
-            width=1.5,
-            headwidth=5,
-            headlength=5,
-            alpha=0.6,
-            ax=ax,
-        )
+    # if not received_completed.empty:
+    #     pitch.arrows(
+    #         received_completed["x"],
+    #         received_completed["y"],
+    #         received_completed["end_x"],
+    #         received_completed["end_y"],
+    #         color="#2200FF",
+    #         width=1.5,
+    #         headwidth=5,
+    #         headlength=5,
+    #         alpha=0.6,
+    #         ax=ax,
+    #     )
     
     # Create legend
     legend_elements = []
