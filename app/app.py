@@ -14,12 +14,6 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Force reload of scrapers modules to pick up latest changes
-if 'scrapers' in sys.modules:
-    del sys.modules['scrapers']
-if 'scrapers.statsbomb' in sys.modules:
-    del sys.modules['scrapers.statsbomb']
-
 from scrapers.statsbomb import plot_pass_map, plot_heat_map
 from frontend_logic import normalize_comp, parse_competitions_for_leaderboard, get_players, get_player_overview_data, get_player_stats, get_leaderboards, get_competitions, get_available_stats, get_statsbomb_competitions, get_statsbomb_matches, get_statsbomb_passes, get_statsbomb_touches, format_birthdate, parse_secondary_positions, clean_display, build_radar, plot_radar, plot_comparison_radar, get_seasons
 
