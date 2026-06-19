@@ -201,10 +201,10 @@ def plot_pass_map(player: str, passes_data):
         legend_elements.append(
             Line2D([0], [0], color="#ff009d", lw=2, label="Incomplete Passes")
         )
-    if not received_completed.empty:
-        legend_elements.append(
-            Line2D([0], [0], color="#2200FF", lw=2, label="Received Passes")
-        )
+    # if not received_completed.empty:
+    #     legend_elements.append(
+    #         Line2D([0], [0], color="#2200FF", lw=2, label="Received Passes")
+    #     )
     
     if legend_elements:
         ax.legend(
