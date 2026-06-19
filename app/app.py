@@ -516,13 +516,23 @@ with pg2:
         df = df[df["primary_position"].isin(position_mapping[selected_position])]
 
     df[f"{selected_stat}"] = pd.to_numeric(df[f"{selected_stat}"], errors="coerce")
+    stat_lower = selected_stat.lower()
+
+    avg_keywords = ["rate", "percentage", "per90", "accuracy"]
+
+    agg_func = (
+        "mean"
+        if any(keyword in stat_lower for keyword in avg_keywords)
+        else "sum"
+    )
+
     leaderboard = (
         df.groupby(
             ["player_name", "primary_position"],
             as_index=False,
         )
         .agg(
-            value=(selected_stat, "sum"),
+            value=(selected_stat, agg_func),
             competitions=("competition", lambda x: ", ".join(sorted(set(x))))
         )
     )
