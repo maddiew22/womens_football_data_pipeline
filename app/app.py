@@ -116,18 +116,30 @@ with pg1:
                     player_stats = player_stats.sort_values("season", ascending=False)
                     st.subheader("Player Stats")
 
-                    st.dataframe(
+                    display_df = (
                         player_stats
-                            .replace({None: np.nan, "None": np.nan})
-                            .drop(
-                                columns=[
-                                    col for col in player_stats.columns
-                                    if col.endswith("percentile")
-                                    or col.endswith("percentile_per90")
-                                ] + ["player_id"],
-                                errors="ignore"
-                            ),hide_index=True
+                        .replace({None: np.nan, "None": np.nan})
+                        .drop(
+                            columns=[
+                                col for col in player_stats.columns
+                                if col.endswith("percentile")
+                                or col.endswith("percentile_per90")
+                            ] + ["player_id"],
+                            errors="ignore"
+                        )
                     )
+                    # Order cols for display
+                    first_cols = [
+                        "season",
+                        "competition",
+                        "matches_played",
+                        "minutes_played",
+                    ]
+                    existing_first_cols = [c for c in first_cols if c in display_df.columns]
+                    remaining_cols = [c for c in display_df.columns if c not in existing_first_cols]
+                    display_df = display_df[existing_first_cols + remaining_cols]
+
+                    st.dataframe(display_df, hide_index=True)
                     st.subheader("Seasonal Stats")
                     season = st.selectbox(
                         "Season",
@@ -154,6 +166,7 @@ with pg1:
                         ["Regular", "Per90"],
                         horizontal=True
                     )
+            
                     suffix = "percentile_per90" if radar_mode == "Per90" else "percentile"
                     left, right = st.columns(2)
                     with left:
@@ -503,6 +516,12 @@ with pg2:
         "Filter Competitions",
         options=all_comps
     )
+    min_mins_filter = st.slider(
+       "Minimum Minutes Played",
+        min_value=0,
+        max_value=2000,
+        value=500
+    )
 
     df = get_leaderboards(
         season=selected_season,
@@ -533,13 +552,17 @@ with pg2:
         )
         .agg(
             value=(selected_stat, agg_func),
+            minutes_played=("minutes_played", "sum"),
             competitions=("competition", lambda x: ", ".join(sorted(set(x))))
         )
     )
+    leaderboard = leaderboard[
+        pd.to_numeric(leaderboard["minutes_played"]) >= min_mins_filter
+    ]
 
     st.dataframe(
         leaderboard[
-            ["player_name", "value", "primary_position", "competitions"]
+            ["player_name", "value", "primary_position", "competitions", "minutes_played"]
         ]
         .sort_values("value", ascending=False)
         .head(20),

@@ -52,7 +52,6 @@ def run_query(query: str, params=None):
         columns = [desc[0] for desc in cursor.description]
 
         df = pd.DataFrame(rows, columns=columns)
-        df = df.astype(str)
 
         df = df.drop(
             columns=[
@@ -70,8 +69,6 @@ def run_query(query: str, params=None):
             ],
             errors="ignore"
         )
-
-        df = df.replace([np.nan, np.inf, -np.inf], None)
 
         return df.to_dict(orient="records")
 
@@ -177,7 +174,8 @@ def get_leaderboards(season, stat):
             bio.player_name,
             stats.{stat},
             bio.primary_position,
-            stats.competition
+            stats.competition,
+            stats.minutes_played
         FROM workspace.fotmob.player_stats_processed AS stats
         JOIN workspace.fotmob.player_overview_processed AS bio
             ON stats.player_id = bio.player_id
