@@ -8,6 +8,7 @@ import plotly.express as px
 import ast
 
 BASE_URL = "https://womens-football-data-pipeline-1.onrender.com"
+# BASE_URL = "http://127.0.0.1:8000"
 
 COMPETITION_ALIASES = {
     "fa women's super league": "wsl",

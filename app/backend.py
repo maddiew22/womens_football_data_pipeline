@@ -27,6 +27,39 @@ DATABRICKS_TOKEN = os.getenv("DATABRICKS_TOKEN")
 DATABRICKS_HOST = os.getenv("DATABRICKS_HOST")
 DATABRICKS_HTTP_PATH = os.getenv("DATABRICKS_HTTP_PATH")
 
+import numpy as np
+
+def make_json_safe(value):
+    # Handle numpy arrays / Databricks arrays first
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+
+    # Handle lists
+    if isinstance(value, list):
+        return [make_json_safe(v) for v in value]
+
+    # Handle dictionaries
+    if isinstance(value, dict):
+        return {k: make_json_safe(v) for k, v in value.items()}
+
+    # Handle missing values safely
+    if value is None:
+        return None
+
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+
+    # Convert numpy scalar types
+    if isinstance(value, np.integer):
+        return int(value)
+
+    if isinstance(value, np.floating):
+        return float(value)
+
+    return value
 
 def get_connection():
     return sql.connect(
@@ -69,8 +102,15 @@ def run_query(query: str, params=None):
             ],
             errors="ignore"
         )
-
-        return df.to_dict(orient="records")
+        records = df.to_dict(orient="records")
+        records = [
+            {
+                key: make_json_safe(value)
+                for key, value in row.items()
+            }
+            for row in records
+        ]
+        return records
 
     except Exception as e:
         print(e)
