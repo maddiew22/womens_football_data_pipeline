@@ -86,6 +86,33 @@ class PostgresDB:
         """
         self.execute(insert_query, (player_id, createdate, season, competition, Json(raw_json)))
         self.commit()
+
+
+    def save_raw_sofascore_json(self, player_id, raw_json):
+        createdate = datetime.now()
+        insert_query = """
+            INSERT INTO fotmob_data.raw_sofascore_player_overview (player_id, createdate, raw_json)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (player_id)
+            DO UPDATE SET 
+                createdate = EXCLUDED.createdate,
+                raw_json = EXCLUDED.raw_json
+        """
+        self.execute(insert_query, (player_id, createdate, Json(raw_json)))
+        self.commit()
+    
+    def save_raw_sofascore_json_season_stats(self, player_id, raw_json):
+        createdate = datetime.now()
+        insert_query = """
+            INSERT INTO fotmob_data.raw_sofascore_player_stats (player_id, createdate, raw_json)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (player_id)
+            DO UPDATE SET 
+                createdate = EXCLUDED.createdate,
+                raw_json = EXCLUDED.raw_json
+        """
+        self.execute(insert_query, (player_id, createdate, Json(raw_json)))
+        self.commit()
     # def save_player_fotmob_data(self, bio_df, season_overview_df, season_stats_df):
     #     insert_bio_query = """
     #         INSERT INTO fotmob_data.player_bio (player_id, name, height, birthdate, country, position, preferred_foot, club)
