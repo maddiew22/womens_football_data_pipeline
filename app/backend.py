@@ -128,7 +128,7 @@ def run_query(query: str, params=None):
 def get_data(limit: int = 10):
     query = f"""
         SELECT *
-        FROM workspace.fotmob.player_stats_processed
+        FROM workspace.fotmob.player_stats_gold
         LIMIT {limit}
     """
     return run_query(query)
@@ -137,7 +137,7 @@ def get_data(limit: int = 10):
 def get_players():
     query = """
         SELECT DISTINCT player_id, player_name
-        FROM workspace.fotmob.player_overview_processed
+        FROM workspace.fotmob.player_overview_gold
     """
     return run_query(query)
 
@@ -146,7 +146,7 @@ def get_players():
 def get_player_bio(player_id: int):
     query = f"""
         SELECT *
-        FROM workspace.fotmob.player_overview_processed
+        FROM workspace.fotmob.player_overview_gold
         WHERE player_id = {player_id}
     """
     return run_query(query)
@@ -155,7 +155,7 @@ def get_player_bio(player_id: int):
 def get_player_stats(player_id: int):
     query = f"""
         SELECT *
-        FROM workspace.fotmob.player_stats_processed
+        FROM workspace.fotmob.player_stats_gold
         WHERE player_id = {player_id}
     """
     return run_query(query)
@@ -165,7 +165,7 @@ def get_competitions(season):
     query = f"""
         SELECT DISTINCT
             competition
-        FROM workspace.fotmob.player_stats_processed
+        FROM workspace.fotmob.player_stats_gold
         WHERE season = {season}
     """
     return run_query(query)
@@ -175,7 +175,7 @@ def get_available_stats():
     query = """
         SELECT column_name
         FROM workspace.information_schema.columns
-        WHERE table_name = 'player_stats_processed'
+        WHERE table_name = 'player_stats_gold'
           AND column_name NOT IN ('player_id', 'season', 'competition')
     """
     return run_query(query)
@@ -184,7 +184,7 @@ def get_available_stats():
 def get_seasons():
     query = f"""
         SELECT DISTINCT season
-        FROM workspace.fotmob.player_stats_processed
+        FROM workspace.fotmob.player_stats_gold
     """
     return run_query(query)
 
@@ -216,8 +216,8 @@ def get_leaderboards(season, stat):
             bio.primary_position,
             stats.competition,
             stats.minutes_played
-        FROM workspace.fotmob.player_stats_processed AS stats
-        JOIN workspace.fotmob.player_overview_processed AS bio
+        FROM workspace.fotmob.player_stats_gold AS stats
+        JOIN workspace.fotmob.player_overview_gold AS bio
             ON stats.player_id = bio.player_id
         WHERE stats.season = {season}
         AND stats.competition NOT IN ({exclude_list})

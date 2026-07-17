@@ -65,14 +65,16 @@ with pg1:
                 st.caption(f"{club} • {country}")
                 c1, c2 = st.columns(2)
 
+                position = player.get("primary_position")
+                foot = player.get("preferred_foot")
                 c1.metric(
                     "Primary Position",
-                    player.get("primary_position", "Unknown").capitalize()
+                    ("Unknown" if position is None else position).capitalize()
                 )
 
                 c2.metric(
                     "Preferred Foot",
-                    player.get("preferred_foot", "Unknown").capitalize()
+                    ("Unknown" if foot is None else foot).capitalize()
                 )
                 st.divider()
 
@@ -86,20 +88,24 @@ with pg1:
                         st.write(format_birthdate(player.get("birthdate")))
 
                         st.write("**Country**")
-                        st.write(player.get("country", "Unknown").capitalize())
+                        country = player.get("country")
+                        st.write(("Unknown" if country is None else country).capitalize())
 
                         st.write("**Preferred Foot**")
-                        st.write(player.get("preferred_foot", "Unknown").capitalize())
+                        foot = player.get("preferred_foot")
+                        st.write(("Unknown" if foot is None else foot).capitalize())
 
                 with right:
                     with st.container(border=True):
                         st.subheader("Football")
 
                         st.write("**Club**")
-                        st.write(player.get("club", "Unknown").capitalize())
+                        club = player.get("club")
+                        st.write(("Unknown" if club is None else club).capitalize())
 
                         st.write("**Primary Position**")
-                        st.write(player.get("primary_position", "Unknown").capitalize())
+                        position = player.get("primary_position")
+                        st.write(("Unknown" if position is None else position).capitalize())
 
                         secondary = player.get("secondary_positions")
                         secondary_list = parse_secondary_positions(secondary)
@@ -124,9 +130,9 @@ with pg1:
                                 col for col in player_stats.columns
                                 if col.endswith("percentile")
                                 or col.endswith("percentile_per90")
-                            ] + ["player_id"],
+                            ] + ["player_id", "data_source", "last_updated"],
                             errors="ignore"
-                        )
+                        ).dropna(axis=1, how="all")
                     )
                     # Order cols for display
                     first_cols = [
@@ -258,7 +264,7 @@ with pg1:
                                 if player_matches.empty:
 
                                     st.warning(
-                                        "No matches found for this player."
+                                        "No passing/heat map data available for this player."
                                     )
 
                                 else:
