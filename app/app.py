@@ -481,15 +481,16 @@ with pg2:
     )
 
     position_mapping = {
-        "Center Back": ["Center Back"],
-        "Full Back": ["Left Back", "Right Back", "Full Back"],
+        "Center Back": ["Center Back", "Defender"],
+        "Full Back": ["Left Back", "Right Back", "Full Back", "Defender"],
         "Central Midfielder": [
+            "Midfielder",
             "Central Midfielder",
             "Defensive Midfielder",
             "Attacking Midfielder",
         ],
         "Winger": ["Left Winger", "Right Winger", "Winger"],
-        "Striker": ["Striker", "Centre Forward"],
+        "Striker": ["Striker", "Centre Forward", "Forward"],
     }
 
     season_options = get_seasons()
