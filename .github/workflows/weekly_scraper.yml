@@ -27,7 +27,7 @@ jobs:
             fotmob-scraper
 
   scrape_sofascore:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout code
