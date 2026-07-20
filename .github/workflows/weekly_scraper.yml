@@ -33,26 +33,56 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install jupyter nbconvert cloudscraper ipykernel
+          pip install jupyter nbconvert cloudscraper ipykernel nbformat
+
+          python -m ipykernel install \
+            --user \
+            --name python3 \
+            --display-name "Python 3"
+
+
+      - name: Inspect notebook
+        working-directory: scrapers
+        run: |
+          python - <<'PY'
+          import nbformat
+
+          nb = nbformat.read(
+              "run_scraper_sofascore.ipynb",
+              as_version=4
+          )
+
+          print("Number of cells:", len(nb.cells))
+
+          for i, cell in enumerate(nb.cells):
+              print("\nCELL", i)
+              print(cell.cell_type)
+              print(cell.source[:300])
+          PY
+
 
       - name: Run SofaScore notebook
+        working-directory: scrapers
         env:
           DB_URL: ${{ secrets.DB_URL }}
-        working-directory: scrapers
         run: |
           jupyter nbconvert \
             --to notebook \
             --execute run_scraper_sofascore.ipynb \
-            --output executed.ipynb
+            --output executed.ipynb \
+            --ExecutePreprocessor.kernel_name=python3
+
 
       - name: Check executed notebook
         working-directory: scrapers
@@ -60,9 +90,19 @@ jobs:
           python - <<'PY'
           import nbformat
 
-          nb = nbformat.read("executed.ipynb", as_version=4)
+          nb = nbformat.read(
+              "executed.ipynb",
+              as_version=4
+          )
 
           for i, cell in enumerate(nb.cells):
               if cell.cell_type == "code":
-                  print(f"Cell {i}: {len(cell.outputs)} outputs")
+                  print(
+                      f"Cell {i}: "
+                      f"{len(cell.outputs)} outputs"
+                  )
+
+                  for output in cell.outputs:
+                      if output.output_type == "stream":
+                          print(output.text)
           PY
