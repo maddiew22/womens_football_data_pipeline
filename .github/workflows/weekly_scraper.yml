@@ -53,3 +53,16 @@ jobs:
             --to notebook \
             --execute run_scraper_sofascore.ipynb \
             --output executed.ipynb
+
+      - name: Check executed notebook
+        working-directory: scrapers
+        run: |
+          python - <<'PY'
+          import nbformat
+
+          nb = nbformat.read("executed.ipynb", as_version=4)
+
+          for i, cell in enumerate(nb.cells):
+              if cell.cell_type == "code":
+                  print(f"Cell {i}: {len(cell.outputs)} outputs")
+          PY
