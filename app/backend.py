@@ -188,6 +188,39 @@ def get_seasons():
     """
     return run_query(query)
 
+@app.get("/players/stats/shot_data/{player_id}")
+def get_player_shot_stats(
+    player_id: int,
+    season: Optional[str] = Query(None),
+    competition: Optional[str] = Query(None),
+):
+    query = f"""
+        SELECT *
+        FROM workspace.fotmob.shot_details
+        WHERE player_id = {player_id}
+    """
+    if season:
+        query += f" AND season = '{season}'"
+    if competition:
+        query += f" AND competition = '{competition}'"
+    return run_query(query)
+
+@app.get("/players/stats/shot_overview/{player_id}")
+def get_player_shot_stats_overview(
+    player_id: int,
+    season: Optional[str] = Query(None),
+    competition: Optional[str] = Query(None),
+):
+    query = f"""
+        SELECT *
+        FROM workspace.fotmob.player_shot_stats
+        WHERE player_id = {player_id}
+    """
+    if season:
+        query += f" AND season = '{season}'"
+    if competition:
+        query += f" AND competition = '{competition}'"
+    return run_query(query)
 
 AVG_KEYWORDS = ["per90", "accuracy", "rate"]
 def get_agg(stat):

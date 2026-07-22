@@ -6,6 +6,8 @@ import requests
 import pandas as pd
 import plotly.express as px
 import ast
+from mplsoccer import VerticalPitch
+import matplotlib.pyplot as plt
 
 BASE_URL = "https://womens-football-data-pipeline-1.onrender.com"
 # BASE_URL = "http://127.0.0.1:8000"
@@ -69,6 +71,42 @@ def get_player_stats(player_id):
     except Exception as e:
         st.error(f"Failed to load player stats: {e}")
         return None
+    
+def get_player_shot_stats(player_id, season=None, competition=None):
+    """Get player shot stats from API for a given player"""
+    try:
+        url = f"{BASE_URL}/players/stats/shot_data/{player_id}"
+        params = {}
+        if season:
+            params["season"] = season
+        if competition:
+            params["competition"] = competition
+        response = requests.get(url, params=params, timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        st.warning(f"Not enough shot data")
+        return None
+    
+
+def get_player_shot_stats_overview(player_id, season=None, competition=None):
+    """Get player shot stats overview from API for a given player"""
+    try:
+        url = f"{BASE_URL}/players/stats/shot_overview/{player_id}"
+        params = {}
+        if season:
+            params["season"] = season
+        if competition:
+            params["competition"] = competition
+        response = requests.get(url, params=params, timeout=60)
+        response.raise_for_status()
+        json_data = response.json()    
+        return pd.DataFrame(json_data)
+    except Exception as e:
+        print(e)
+        return None
+
 
 def get_leaderboards(season, stat):
     """Get leaderboard data for a given stat from API"""
@@ -313,3 +351,120 @@ def plot_comparison_radar(player_data, cols, title, suffix):
         showlegend=True
     )
     st.plotly_chart(fig, use_container_width=True)
+
+
+def plot_shot_map(df):
+    pitch = VerticalPitch(
+        pitch_type="custom",
+        pitch_length=103,
+        pitch_width=68,
+        half=True,
+        pitch_color="#1e1e1e",
+        line_color="white",
+        linewidth=1,
+        pad_top=4,
+        pad_bottom=2,
+        pad_left=2,
+        pad_right=2,
+    )
+
+    fig, ax = pitch.draw(figsize=(8, 4))
+
+    # remove white matplotlib background
+    fig.patch.set_facecolor("#1e1e1e")
+    ax.set_facecolor("#1e1e1e")
+
+    colours = {
+        "Goal": "#2ecc71",
+        "AttemptSaved": "#3498db",
+        "Miss": "#e74c3c",
+        "Post": "#f39c12",
+    }
+
+    for outcome, colour in colours.items():
+
+        shots = df[
+            (df["event_type"] == outcome)
+            & df["shot_x"].notna()
+            & df["shot_y"].notna()
+        ].copy()
+
+        if shots.empty:
+            continue
+
+        pitch.scatter(
+            shots["shot_x"],
+            68-shots["shot_y"],   # y=34 is central channel
+            s=shots["expected_goals"].fillna(0.05) * 1200 + 40,
+            c=colour,
+            edgecolors="white",
+            linewidth=1,
+            alpha=0.85,
+            label=outcome,
+            ax=ax,
+        )
+
+    ax.legend(loc="lower left",
+        facecolor="#1e1e1e",
+        labelcolor="white")
+
+    return fig
+
+def plot_goal_map(df):
+    fig, ax = plt.subplots(figsize=(8, 4))
+
+    bg_color = "#1e1e1e"
+    fig.patch.set_facecolor(bg_color)
+    ax.set_facecolor(bg_color)
+
+    colours = {
+        "Goal": "#2ecc71",
+        "AttemptSaved": "#3498db",
+        "Post": "#f39c12",
+        "Miss": "#e74c3c",
+    }
+
+    # FotMob coordinate system
+    left_post = 38
+    right_post = 30
+    goal_height = 2.44
+
+    # Draw goal frame
+    ax.plot([left_post, left_post], [0, goal_height], color="white")
+    ax.plot([right_post, right_post], [0, goal_height], color="white")
+    ax.plot([right_post, left_post], [goal_height, goal_height], color="white")
+
+    for outcome, colour in colours.items():
+
+        shots = df[
+            (df.event_type == outcome)
+            & df["goal_crossed_y"].notna()
+            & df["goal_crossed_z"].notna()
+        ].copy()
+
+        if shots.empty:
+            continue
+
+        ax.scatter(
+            shots["goal_crossed_y"],
+            shots["goal_crossed_z"],
+            s=shots["expected_goals"].fillna(0.05) * 1200 + 40,
+            c=colour,
+            edgecolors="white",
+            alpha=0.85,
+            label=outcome,
+        )
+
+    # Keep goal centered and show misses around it
+    ax.set_xlim(40, 28)  # invert so left/right matches goalkeeper view
+    ax.set_ylim(0, 3)
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    ax.legend(
+        facecolor=bg_color,
+        labelcolor="white"
+    )
+
+    return fig

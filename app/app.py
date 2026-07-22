@@ -9,13 +9,14 @@ import sys
 from pathlib import Path
 import plotly.express as px
 import ast
+import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scrapers.statsbomb import plot_pass_map, plot_heat_map
-from frontend_logic import normalize_comp, parse_competitions_for_leaderboard, get_players, get_player_overview_data, get_player_stats, get_leaderboards, get_competitions, get_available_stats, get_statsbomb_competitions, get_statsbomb_matches, get_statsbomb_passes, get_statsbomb_touches, format_birthdate, parse_secondary_positions, clean_display, build_radar, plot_radar, plot_comparison_radar, get_seasons
+from frontend_logic import normalize_comp, parse_competitions_for_leaderboard, get_players, get_player_overview_data, get_player_stats, get_leaderboards, get_competitions, get_available_stats, get_statsbomb_competitions, get_statsbomb_matches, get_statsbomb_passes, get_statsbomb_touches, format_birthdate, parse_secondary_positions, clean_display, build_radar, plot_goal_map, plot_radar, plot_comparison_radar, get_seasons, get_player_shot_stats, get_player_shot_stats_overview, plot_shot_map
 
 STATS_GROUPS = {
     "Defence": ["tackles", "tackles_per90", "defensive_actions", "defensive_actions_per90", "duels_won", "duels_won_per90", "dribbled_past", "dribbled_past_per90", "interceptions", "interceptions_per90", "recoveries", "recoveries_per90", "clearances", "clearances_per90", "possession_won_final_3rd", "possession_won_final_3rd_per90", "aerials_won", "aerials_won_per90", "clean_sheets", "goals_conceded_while_on_pitch", "goals_conceded_while_on_pitch_per90"],
@@ -239,6 +240,175 @@ with pg1:
                                 clean_display(seasonal_stats, STATS_GROUPS["Discipline"]),
                                 hide_index=True
                             )
+                    with st.container(border=True):
+                        st.subheader("Shot Overview")
+                        shots_df = get_player_shot_stats(selected_id, season, competition)
+                        shot_overview_stats = get_player_shot_stats_overview(selected_id, season, competition)
+                        
+                        exclude_cols = ["player_id", "season", "competition"]
+                        st.dataframe(
+                            shot_overview_stats.drop(columns=exclude_cols, errors="ignore"),
+                            hide_index=True,
+                        )
+                   
+                        try:
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.markdown("Shot Map")
+                                st.pyplot(plot_shot_map(shots_df), use_container_width=True)
+                            with col2:
+                                st.markdown("Goal Map")
+                                st.pyplot(plot_goal_map(shots_df), use_container_width=True)
+                            st.divider()
+                            col_a, col_b = st.columns(2)
+                            with col_a:
+                                st.markdown("Conversion Rate")
+                                st.progress(shot_overview_stats["conversion_rate"].iloc[0]/100)
+                                st.caption(f"{shot_overview_stats['conversion_rate'].iloc[0]:.1f}%")
+
+                                body = pd.DataFrame({
+                                    "Body Part": [
+                                        "Right Foot",
+                                        "Left Foot",
+                                        "Header",
+                                        "Other"
+                                    ],
+                                    "Shots": [
+                                        shot_overview_stats["right_foot_shots"].iloc[0],
+                                        shot_overview_stats["left_foot_shots"].iloc[0],
+                                        shot_overview_stats["header_shots"].iloc[0],
+                                        shot_overview_stats["other_body_part_shots"].iloc[0]
+                                    ]
+                                })
+                                fig = px.pie(
+                                    body,
+                                    names="Body Part",
+                                    values="Shots",
+                                    hole=0.6,
+                                    title="Shot Body Part Distribution"
+                                )
+                                fig.update_traces(textposition="inside", textinfo="percent+label")
+                                st.plotly_chart(fig, use_container_width=True)
+
+                                situations = pd.DataFrame({
+                                    "Situation": [
+                                        "Regular Play",
+                                        "Corner",
+                                        "Set Piece",
+                                        "Other"
+                                    ],
+                                    "Shots": [
+                                        shot_overview_stats["regular_play_shots"].iloc[0],
+                                        shot_overview_stats["corner_shots"].iloc[0],
+                                        shot_overview_stats["set_piece_shots"].iloc[0],
+                                        shot_overview_stats["other_situation_shots"].iloc[0]
+                                    ]
+                                })
+                                fig = px.bar(
+                                    situations,
+                                    x="Shots",
+                                    y="Situation",
+                                    orientation="h",
+                                    text="Shots",
+                                    title="Shot Situation Distribution"
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+
+                            with col_b:
+                                st.markdown("Shot Accuracy")
+                                st.progress(shot_overview_stats["shot_accuracy"].iloc[0]/100)
+                                st.caption(f"{shot_overview_stats['shot_accuracy'].iloc[0]:.1f}%")
+
+                                location = pd.DataFrame({
+                                    "Location": [
+                                        "Inside Box",
+                                        "Outside Box"
+                                    ],
+                                    "Shots": [
+                                        shot_overview_stats["inside_box_shots"].iloc[0],
+                                        shot_overview_stats["outside_box_shots"].iloc[0]
+                                    ]
+                                })
+                                fig = px.pie(
+                                    location,
+                                    names="Location",
+                                    values="Shots",
+                                    hole=0.6,
+                                    title="Shot Location Distribution"
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+
+
+                                bins = [-np.inf, 0.1, 0.2, 0.4, np.inf]
+                                labels = [
+                                    "Poor (<0.1)",
+                                    "Average (0.1-0.2)",
+                                    "Good (0.2-0.4)",
+                                    "Great (>0.4)"
+                                ]
+                                shots_df["shot_quality"] = pd.cut(
+                                    shots_df["expected_goals"],
+                                    bins=bins,
+                                    labels=labels
+                                )
+                                # Count all shots
+                                all_shots = (
+                                    shots_df["shot_quality"]
+                                    .value_counts()
+                                    .reindex(labels)
+                                    .fillna(0)
+                                )
+                                # Count converted shots
+                                converted_shots = (
+                                    shots_df[shots_df["event_type"] == "Goal"]["shot_quality"]
+                                    .value_counts()
+                                    .reindex(labels)
+                                    .fillna(0)
+                                )
+                                shot_quality_df = pd.DataFrame({
+                                    "Shot Quality": labels,
+                                    "All Shots": all_shots.values,
+                                    "Goals": converted_shots.values
+                                })
+
+                                # Convert to long format
+                                plot_df = shot_quality_df.melt(
+                                    id_vars="Shot Quality",
+                                    value_vars=["All Shots", "Goals"],
+                                    var_name="Type",
+                                    value_name="Count"
+                                )
+
+                                # Plot
+                                fig = px.bar(
+                                    plot_df,
+                                    x="Shot Quality",
+                                    y="Count",
+                                    color="Type",
+                                    barmode="group",
+                                    text="Count",
+                                    title="Shot Quality Distribution"
+                                )
+
+                                fig.update_traces(
+                                    textposition="outside"
+                                )
+
+                                fig.update_layout(
+                                    template="plotly_white",
+                                    xaxis_title="Chance Quality (xG)",
+                                    yaxis_title="Number of Shots",
+                                    legend_title=""
+                                )
+
+                                st.plotly_chart(
+                                    fig,
+                                    use_container_width=True
+                                )
+                            
+                        except Exception as e:
+                            print(e)
+                            st.info("Not enough data for shot map or goal map")
 
                     st.subheader("Passing and Heat Maps")
 
