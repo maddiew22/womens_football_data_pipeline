@@ -246,10 +246,10 @@ with pg1:
                         shot_overview_stats = get_player_shot_stats_overview(selected_id, season, competition)
                         
                         exclude_cols = ["player_id", "season", "competition"]
-                        st.dataframe(
-                            shot_overview_stats.drop(columns=exclude_cols, errors="ignore"),
-                            hide_index=True,
-                        )
+                        # st.dataframe(
+                        #     shot_overview_stats.drop(columns=exclude_cols, errors="ignore"),
+                        #     hide_index=True,
+                        # )
                    
                         try:
                             col1, col2 = st.columns(2)
@@ -312,6 +312,37 @@ with pg1:
                                     text="Shots",
                                     title="Shot Situation Distribution"
                                 )
+                                st.plotly_chart(fig, use_container_width=True)
+
+
+                                goal_context = pd.DataFrame({
+                                    "Situation": [
+                                        "Go Ahead",
+                                        "Leveller",
+                                        "Insurance",
+                                        "Consolation"
+                                    ],
+                                    "Goals": [
+                                        shot_overview_stats["go_ahead_goals"].iloc[0],
+                                        shot_overview_stats["leveller_goals"].iloc[0],
+                                        shot_overview_stats["insurance_goals"].iloc[0],
+                                        shot_overview_stats["consolation_goals"].iloc[0]
+                                    ]
+                                })
+                                # remove zero categories
+                                goal_context = goal_context[goal_context["Goals"] > 0]
+                                fig = px.pie(
+                                    goal_context,
+                                    names="Situation",
+                                    values="Goals",
+                                    hole=0.55,
+                                    title="Goals by Game Situation"
+                                )
+                                fig.update_traces(
+                                    textposition="inside",
+                                    textinfo="label+value"
+                                )
+
                                 st.plotly_chart(fig, use_container_width=True)
 
                             with col_b:
