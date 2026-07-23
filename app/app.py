@@ -8,6 +8,7 @@ import pandas as pd
 import sys
 from pathlib import Path
 import plotly.express as px
+import plotly.graph_objects as go
 import ast
 import matplotlib.pyplot as plt
 
@@ -263,8 +264,61 @@ with pg1:
                             col_a, col_b = st.columns(2)
                             with col_a:
                                 st.markdown("Conversion Rate")
-                                st.progress(shot_overview_stats["conversion_rate"].iloc[0]/100)
-                                st.caption(f"{shot_overview_stats['conversion_rate'].iloc[0]:.1f}%")
+
+                                conversion_rate = shot_overview_stats["conversion_rate"].iloc[0]
+                                fig = go.Figure()
+                                fig.add_bar(
+                                    x=[100],
+                                    y=[""],
+                                    orientation="h",
+                                    marker_color="#3a3a3a",
+                                    width=1.5,
+                                    hoverinfo="skip",
+                                )
+                                # Filled accuracy bar
+                                fig.add_bar(
+                                    x=[conversion_rate],
+                                    y=[""],
+                                    orientation="h",
+                                    marker_color="#2e70cc",
+                                    width=1.5,
+                                    hoverinfo="skip",
+                                )
+                                # Percentage label in center of bar
+                                fig.add_annotation(
+                                    x=conversion_rate / 2,
+                                    y=0,
+                                    text=f"<b>{conversion_rate:.1f}%</b>",
+                                    showarrow=False,
+                                    font=dict(
+                                        color="white",
+                                        size=14
+                                    ),
+                                )
+                                fig.update_layout(
+                                    barmode="overlay",
+                                    height=50,
+                                    margin=dict(l=20, r=20, t=10, b=10),
+                                    xaxis=dict(
+                                        range=[0, 100],
+                                        visible=False,
+                                        fixedrange=True,
+                                    ),
+                                    yaxis=dict(
+                                        visible=False,
+                                        range=[-1, 1],
+                                        fixedrange=True,
+                                    ),
+                                    paper_bgcolor="#1e1e1e",
+                                    plot_bgcolor="#1e1e1e",
+                                    showlegend=False,
+                                )
+                                fig.update_traces(
+                                    marker_line_width=0
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                                # st.progress(shot_overview_stats["conversion_rate"].iloc[0]/100)
+                                # st.caption(f"{shot_overview_stats['conversion_rate'].iloc[0]:.1f}%")
 
                                 body = pd.DataFrame({
                                     "Body Part": [
@@ -347,8 +401,61 @@ with pg1:
 
                             with col_b:
                                 st.markdown("Shot Accuracy")
-                                st.progress(shot_overview_stats["shot_accuracy"].iloc[0]/100)
-                                st.caption(f"{shot_overview_stats['shot_accuracy'].iloc[0]:.1f}%")
+                            
+                                accuracy = shot_overview_stats["shot_accuracy"].iloc[0]
+                                fig = go.Figure()
+                                fig.add_bar(
+                                    x=[100],
+                                    y=[""],
+                                    orientation="h",
+                                    marker_color="#3a3a3a",
+                                    width=1.5,
+                                    hoverinfo="skip",
+                                )
+                                # Filled accuracy bar
+                                fig.add_bar(
+                                    x=[accuracy],
+                                    y=[""],
+                                    orientation="h",
+                                    marker_color="#2e70cc",
+                                    width=1.5,
+                                    hoverinfo="skip",
+                                )
+                                # Percentage label in center of bar
+                                fig.add_annotation(
+                                    x=accuracy / 2,
+                                    y=0,
+                                    text=f"<b>{accuracy:.1f}%</b>",
+                                    showarrow=False,
+                                    font=dict(
+                                        color="white",
+                                        size=14
+                                    ),
+                                )
+                                fig.update_layout(
+                                    barmode="overlay",
+                                    height=50,
+                                    margin=dict(l=20, r=20, t=10, b=10),
+                                    xaxis=dict(
+                                        range=[0, 100],
+                                        visible=False,
+                                        fixedrange=True,
+                                    ),
+                                    yaxis=dict(
+                                        visible=False,
+                                        range=[-1, 1],
+                                        fixedrange=True,
+                                    ),
+                                    paper_bgcolor="#1e1e1e",
+                                    plot_bgcolor="#1e1e1e",
+                                    showlegend=False,
+                                )
+                                fig.update_traces(
+                                    marker_line_width=0
+                                )
+                                st.plotly_chart(fig, use_container_width=True)
+                                # st.progress(shot_overview_stats["shot_accuracy"].iloc[0]/100)
+                                # st.caption(f"{shot_overview_stats['shot_accuracy'].iloc[0]:.1f}%")
 
                                 location = pd.DataFrame({
                                     "Location": [

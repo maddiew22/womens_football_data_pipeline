@@ -136,8 +136,7 @@ def get_data(limit: int = 10):
 @app.get("/players")
 def get_players():
     query = """
-        SELECT DISTINCT player_id, player_name
-        FROM workspace.fotmob.player_overview_gold
+        SELECT player_id, player_name FROM workspace.fotmob.player_lookup
     """
     return run_query(query)
 
