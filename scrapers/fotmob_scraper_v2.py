@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.chrome.options import Options
-
+import re
 
 class FotMobScraper:
     BASE_URL_BIO = "https://www.fotmob.com/api/data/playerData?id={}"
@@ -39,6 +39,14 @@ class FotMobScraper:
         if cookies:
             self.session.cookies.update(cookies)
 
+    def team_overview(self, team: int):
+        url = f"https://www.fotmob.com/api/data/teams?id={team}"
+        r = self.session.get(url, timeout=15)
+
+        if r.status_code != 200:
+            raise Exception(f"Test request failed: {r.status_code} - {r.text[:200]}")
+        return r.json()
+    
     def get_player_bio(self, player_id: int):
         url = self.BASE_URL_BIO.format(player_id)
 
@@ -161,7 +169,6 @@ class TeamScraper:
                 )
             )
         except TimeoutException:
-            # Fall back to whatever loaded; some leagues may delay rendering
             pass
 
         time.sleep(2)
@@ -192,12 +199,25 @@ class TeamScraper:
         time.sleep(1)
         soup = BeautifulSoup(self.driver.page_source, "lxml")
 
-        players = set()
-
         squad_box = soup.find("div", class_="css-1qm9gpo-Column e152ovrx0")
 
-        if not squad_box:
-            return []
+        # Fallback if squad tab is missing
+        if squad_box is None:
+            print("Squad tab not found. Falling back to last lineup.")
+
+            team_id = re.search(r"/teams/(\d+)/", team_url).group(1)
+            scraper = FotMobScraper()
+            results = scraper.team_overview(team=int(team_id))
+
+            return [
+                str(player["id"])
+                for player in (
+                    results["overview"]["lastLineupStats"]["starters"]
+                    + results["overview"]["lastLineupStats"]["subs"]
+                )
+]
+
+        players = set()
 
         squad_subsections = squad_box.find_all("div")
 
