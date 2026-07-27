@@ -20,7 +20,7 @@ from scrapers.statsbomb import plot_pass_map, plot_heat_map
 from frontend_logic import normalize_comp, parse_competitions_for_leaderboard, get_players, get_player_overview_data, get_player_stats, get_leaderboards, get_competitions, get_available_stats, get_statsbomb_competitions, get_statsbomb_matches, get_statsbomb_passes, get_statsbomb_touches, format_birthdate, parse_secondary_positions, clean_display, build_radar, plot_goal_map, plot_radar, plot_comparison_radar, get_seasons, get_player_shot_stats, get_player_shot_stats_overview, plot_shot_map
 
 STATS_GROUPS = {
-    "Defence": ["tackles", "tackles_per90", "defensive_actions", "defensive_actions_per90", "duels_won", "duels_won_per90", "dribbled_past", "dribbled_past_per90", "interceptions", "interceptions_per90", "recoveries", "recoveries_per90", "clearances", "clearances_per90", "possession_won_final_3rd", "possession_won_final_3rd_per90", "aerials_won", "aerials_won_per90", "clean_sheets", "goals_conceded_while_on_pitch", "goals_conceded_while_on_pitch_per90"],
+    "Defence": ["tackles", "tackles_per90", "defensive_actions", "defensive_actions_per90", "duels_won", "duels_won_per90", "dribbled_past", "dribbled_past_per90", "interceptions", "interceptions_per90", "recoveries", "recoveries_per90", "clearances", "clearances_per90", "possession_won_final_3rd", "possession_won_final_3rd_per90", "aerials_won", "aerials_won_per90", "clean_sheets"],
     "Offence": ["goals", "goals_per90", "assists", "assists_per90", "big_chances_created", "big_chances_created_per90", "chances_created", "chances_created_per90", "shots", "shots_per90", "shots_on_target", "shots_on_target_per90", "dribbles", "dribbles_per90", "dribbles_success_rate", "touches_in_opposition_box", "touches_in_opposition_box_per90"],
     "Passing": ["accurate_passes", "accurate_passes_per90", "pass_accuracy", 
                 "accurate_long_balls", "accurate_long_balls_per90", "long_ball_accuracy", "successful_crosses", "successful_crosses_per90", "cross_accuracy"],
@@ -30,7 +30,7 @@ STATS_GROUPS = {
 
 # Page Config
 st.set_page_config(
-    page_title="Women's Football Data App",
+    page_title="Women's Football Data",
     layout="wide"
 )
 # UI
@@ -45,7 +45,7 @@ player_map = {p["player_name"]: p["player_id"] for p in players}
 
 with pg1:
     with st.container(border=True):
-        default_name = "Leah Williamson"
+        default_name = "Alessia Russo"
         sorted_names = sorted(player_map.keys())
         default_index = sorted_names.index(default_name) if default_name in sorted_names else 0
         selected_name = st.selectbox(
@@ -59,63 +59,90 @@ with pg1:
         tab1, tab2, tab3 = st.tabs(["Overview", "Stats", "Compare"])
         with tab1:
             st.header(selected_name)
+
             player_overview = get_player_overview_data(selected_id)
+
             if player_overview is not None:
+
                 player = player_overview.iloc[0]
+
                 club = player.get("club", "Unknown Club")
                 country = player.get("country", "Unknown Country")
-                st.caption(f"{club} • {country}")
-                c1, c2 = st.columns(2)
+                position = player.get("primary_position", "Unknown")
+                foot = player.get("preferred_foot", "Unknown")
 
-                position = player.get("primary_position")
-                foot = player.get("preferred_foot")
-                c1.metric(
-                    "Primary Position",
-                    ("Unknown" if position is None else position).capitalize()
-                )
+                st.caption(f"{club}  •  {country}")
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    with st.container(border=True):
+                        st.metric(
+                            "Position",
+                            ("Unknown" if position is None else position).capitalize()
+                        )
 
-                c2.metric(
-                    "Preferred Foot",
-                    ("Unknown" if foot is None else foot).capitalize()
-                )
+                with c2:
+                    with st.container(border=True):
+                        st.metric(
+                            "Club",
+                            ("Unknown" if club is None else club).capitalize()
+                        )
+
+                with c3:
+                    with st.container(border=True):
+                        st.metric(
+                            "Country",
+                            ("Unknown" if country is None else country).capitalize()
+                        )
+
                 st.divider()
 
+                # Detailed info
                 left, right = st.columns(2)
 
                 with left:
                     with st.container(border=True):
-                        st.subheader("Personal")
+
+                        st.subheader("👤 Personal")
 
                         st.write("**Birth Date**")
                         st.write(format_birthdate(player.get("birthdate")))
 
                         st.write("**Country**")
-                        country = player.get("country")
-                        st.write(("Unknown" if country is None else country).capitalize())
-
+                        st.write(
+                            ("Unknown" if country is None else country).capitalize()
+                        )
                         st.write("**Preferred Foot**")
-                        foot = player.get("preferred_foot")
-                        st.write(("Unknown" if foot is None else foot).capitalize())
+                        st.write(
+                            ("Unknown" if foot is None else foot).capitalize()
+                        )
+
 
                 with right:
                     with st.container(border=True):
-                        st.subheader("Football")
+
+                        st.subheader("⚽ Football")
 
                         st.write("**Club**")
-                        club = player.get("club")
-                        st.write(("Unknown" if club is None else club).capitalize())
+                        st.write(
+                            ("Unknown" if club is None else club).capitalize()
+                        )
 
                         st.write("**Primary Position**")
-                        position = player.get("primary_position")
-                        st.write(("Unknown" if position is None else position).capitalize())
+                        st.write(
+                            ("Unknown" if position is None else position).capitalize()
+                        )
 
                         secondary = player.get("secondary_positions")
                         secondary_list = parse_secondary_positions(secondary)
-                        secondary_display = "None" if not secondary_list else ", ".join(secondary_list)
+
+                        secondary_display = (
+                            "None" 
+                            if not secondary_list 
+                            else ", ".join(secondary_list)
+                        )
 
                         st.write("**Secondary Positions**")
                         st.write(secondary_display)
-
         with tab2:
             st.header("Stats")
             player_stats = get_player_stats(selected_id)
@@ -797,7 +824,7 @@ with pg2:
             "Defensive Midfielder",
             "Attacking Midfielder",
         ],
-        "Winger": ["Left Winger", "Right Winger", "Winger"],
+        "Winger": ["Left Winger", "Right Winger", "Winger", "Right midfielder", "Left midfielder"],
         "Striker": ["Striker", "Centre Forward", "Forward"],
     }
 
@@ -821,7 +848,7 @@ with pg2:
         "Summer Olympics Women",
     ]
 
-    comps = get_competitions(season)
+    comps = get_competitions(selected_season)
     all_comps = [
         c for c in comps["competition"].tolist()
         if c not in comps_to_exclude

@@ -250,29 +250,52 @@ def clean_display(df, cols):
     cleaned = df[cols].dropna(axis=1)
     return cleaned
 
+RENAME_MAPPING = {
+    "dribbled_past": "dribble_resistance",
+    "dribbled_past_per90": "dribbled_resistance_per90",
+}
+
+
 def build_radar(df, cols, suffix="percentile"):
     """Build radar plot of player's stats"""
-    base_cols = [
-        c for c in cols
-        if c in df.columns and not c.endswith("_per90")
-    ]
+    # determine candidate base columns (exclude literal per90 base names)
+    base_cols = [c for c in cols if not c.endswith("_per90")]
 
-    pct_pairs = [
-        (c, f"{c}_{suffix}")
-        for c in base_cols
-        if f"{c}_{suffix}" in df.columns
-    ]
+    # detect if this is the discipline group by presence of common discipline bases
+    discipline_bases = {"fouls_committed", "yellow_cards", "red_cards", "penalties_conceded"}
+    is_discipline = any(b in base_cols for b in discipline_bases)
 
     labels = []
     values = []
 
-    for base, pct in pct_pairs:
-        val = df[pct].iloc[0]
+    for base in base_cols:
+        # prefer renamed base when present
+        mapped = RENAME_MAPPING.get(base, base)
+        pct_col_mapped = f"{mapped}_{suffix}"
+        pct_col_orig = f"{base}_{suffix}"
 
+        pct_col = None
+        if pct_col_mapped in df.columns:
+            pct_col = pct_col_mapped
+        elif pct_col_orig in df.columns:
+            pct_col = pct_col_orig
+
+        if not pct_col:
+            continue
+
+        val = df[pct_col].iloc[0]
         if pd.isna(val):
             continue
 
-        labels.append(base.replace("_", " ").title())
+        # invert discipline percentages (e.g. 40 -> 60)
+        try:
+            if is_discipline:
+                # assume percentiles are 0-100
+                val = 100 - float(val)
+        except Exception:
+            pass
+
+        labels.append(mapped.replace("_", " ").title())
         values.append(val)
 
     if len(values) < 3:
@@ -303,15 +326,17 @@ def plot_radar(labels, values, title="Radar"):
 
 def get_common_radar_axes(player_data, cols, suffix):
     """Get common stats non na stats between players for plotting comparison radar"""
-    base_cols = [
-        c for c in cols
-        if not c.endswith("_per90")
-    ]
+    base_cols = [c for c in cols if not c.endswith("_per90")]
     common = []
     for col in base_cols:
-        pct_col = f"{col}_{suffix}"
+        mapped = RENAME_MAPPING.get(col, col)
+        pct_col_mapped = f"{mapped}_{suffix}"
+        pct_col_orig = f"{col}_{suffix}"
+
+        # require that every player has either mapped or original pct col present and not null
         if all(
-            pct_col in df.columns and pd.notna(df[pct_col].iloc[0])
+            ((pct_col_mapped in df.columns and pd.notna(df[pct_col_mapped].iloc[0]))
+             or (pct_col_orig in df.columns and pd.notna(df[pct_col_orig].iloc[0])))
             for df in player_data.values()
         ):
             common.append(col)
@@ -323,12 +348,31 @@ def plot_comparison_radar(player_data, cols, title, suffix):
     if len(common_axes) < 3:
         st.warning(f"Not enough shared data for {title}")
         return
-    labels = [c.replace("_", " ").title() for c in common_axes]
+    labels = [RENAME_MAPPING.get(c, c).replace("_", " ").title() for c in common_axes]
     fig = go.Figure()
 
     colors = px.colors.qualitative.Safe
     for i, (player_name, df) in enumerate(player_data.items()):
-        values = [df[f"{col}_{suffix}"].iloc[0] for col in common_axes]
+        # collect values preferring renamed columns
+        values = []
+        for col in common_axes:
+            mapped = RENAME_MAPPING.get(col, col)
+            pct_col_mapped = f"{mapped}_{suffix}"
+            pct_col_orig = f"{col}_{suffix}"
+            if pct_col_mapped in df.columns:
+                v = df[pct_col_mapped].iloc[0]
+            else:
+                v = df[pct_col_orig].iloc[0]
+
+            # invert discipline values if needed
+            discipline_bases = {"fouls_committed", "yellow_cards", "red_cards", "penalties_conceded"}
+            if any(b in common_axes for b in discipline_bases):
+                try:
+                    v = 100 - float(v)
+                except Exception:
+                    pass
+
+            values.append(v)
         color = colors[i % len(colors)]
         fig.add_trace(
             go.Scatterpolar(
